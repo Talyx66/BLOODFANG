@@ -74,7 +74,7 @@ class BloodFangGUI(QMainWindow):
         self.central_widget.setGraphicsEffect(shadow)
 
         # Semi-transparent overlay
-        self.central_widget.setStyleSheet("background-color: rgba(10, 10, 10, 180);")
+        self.central_widget.setStyleSheet("background-color: rgba(30, 30, 30, 100);")
 
         layout = QVBoxLayout()
 
