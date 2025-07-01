@@ -1,42 +1,27 @@
 
-BLOODFANG is the second advanced red team offensive toolkit I’ve developed, designed for rapid and effective penetration testing. It integrates powerful modules for reconnaissance, password spraying, brute forcing, API endpoint discovery, and more, enabling security professionals to execute offensive operations with precision and speed.
+# BLOODFANG
 
-Features
-Password Spraying
+# Description
+echo "BLOODFANG is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed."
 
-Brute Force Attacks
+# Features
+echo "- Password Spraying"
+echo "- Brute Force Attacks"
+echo "- API Endpoint Discovery"
+echo "- Modular and expandable"
+echo "- Simple CLI interface"
 
-API Endpoint Discovery
+# Installation
+echo "git clone https://github.com/yourusername/BLOODFANG.git"
+echo "cd BLOODFANG"
+echo "pip install -r requirements.txt"
 
-Modular architecture for easy expansion
+# Usage
+echo "python bloodfang.py"
+echo "Follow on-screen prompts to select tools and targets."
 
-Simple, intuitive command-line interface
+# Contribution
+echo "Contributions welcome! Open issues or submit pull requests."
 
-Installation
-Clone the repository:
-
-bash
-Copy
-Edit
-git clone https://github.com/yourusername/BLOODFANG.git
-cd BLOODFANG
-Install required dependencies:
-
-bash
-Copy
-Edit
-pip install -r requirements.txt
-Usage
-Run the main script:
-
-bash
-Copy
-Edit
-python bloodfang.py
-Follow on-screen instructions to select tools and targets.
-
-Contributing
-Contributions and improvements are welcome. Open issues or submit pull requests for new features, bug fixes, or optimizations.
-
-Disclaimer
-Use BLOODFANG responsibly and only on systems where you have explicit permission. Unauthorized use is illegal and unethical.
+# Disclaimer
+echo "Use responsibly with explicit permission. Unauthorized use is illegal."
