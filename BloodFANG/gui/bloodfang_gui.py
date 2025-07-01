@@ -142,32 +142,34 @@ class BloodFangGUI(QMainWindow):
 
         layout.addLayout(grid)
         # Static tool info + parameter examples
-        tool_info = QLabel("""
-        <b style="font-size:14px;">Tool Descriptions:</b><br>
-           <b>XSS Scanner</b>: Detects reflected/stored cross-site scripting.<br>
-           <b>SQLi Scanner</b>: Probes for SQL injection flaws via input params.<br>
-           <b>LFI Scanner</b>: Attempts local file reads using traversal payloads.<br>
-           <b>RCE Scanner</b>: Tests for command execution via vulnerable input.<br>
-           <b>Brute Forcer</b>: Username/password spray for weak logins.<br>
-           <b>API Finder</b>: Scans for common REST API endpoints.<br><br>
+tool_info = QLabel("""
+<b style="font-size:14px;">Tool Descriptions:</b><br>
+   <b>XSS Scanner</b>: Detects reflected/stored cross-site scripting via injected payloads in GET parameters.<br>
+   <b>SQLi Scanner</b>: Probes injectable parameters vulnerable to SQL-based data leakage.<br>
+   <b>LFI Scanner</b>: Tests for Local File Inclusion using path traversal attacks.<br>
+   <b>RCE Scanner</b>: Attempts remote command execution via exposed input fields.<br>
+   <b>Brute Forcer</b>: Performs credential spraying on login endpoints.<br>
+   <b>API Finder</b>: Discovers exposed or undocumented API endpoints.<br><br>
 
-        <b style="font-size:14px;">Parameter Examples:</b><br>
-        XSS/SQLi/LFI/RCE Param: <code>q</code>, <code>search</code>, <code>id</code>, <code>file</code><br>
-        Brute Force Path: <code>/login</code>, <code>/admin/auth</code><br>
-        API Base URL: <code>http://target.com</code> or <code>http://target.com/api</code>
-        """)
-        tool_info.setStyleSheet("""
-            color: #ff4d4d;
-            font-size: 12px;
-            background-color: rgba(30, 30, 30, 180);
-            padding: 8px;
-            border: 1px solid #ff1a1a;
-            border-radius: 5px;
-        """)        
-        tool_info.setStyleSheet("color: #ff4d4d; font-size: 14px; background-color: rgba(30,30,30,180); padding: 6px;")
-        tool_info.setAlignment(Qt.AlignLeft)
-        tool_info.setWordWrap(True)
-        layout.addWidget(tool_info)
+<b style="font-size:14px;">Parameter Examples:</b><br>
+  XSS → URL: <code>http://target.com/search</code> | Param: <code>q</code><br>
+  SQLi → URL: <code>http://target.com/product</code> | Param: <code>id</code><br>
+  LFI → URL: <code>http://target.com/view</code> | Param: <code>file</code><br>
+  RCE → URL: <code>http://target.com/cmd</code> | Param: <code>exec</code><br>
+  Brute Force → Base URL: <code>http://target.com</code> | Path: <code>/admin/login</code><br>
+  API Finder → Base URL: <code>http://target.com</code> (scans /api/, /v1/, etc.)
+""")
+tool_info.setStyleSheet("""
+    color: #ff4d4d;
+    font-size: 12px;
+    background-color: rgba(30, 30, 30, 180);
+    padding: 8px;
+    border: 1px solid #ff1a1a;
+    border-radius: 5px;
+""")
+tool_info.setAlignment(Qt.AlignLeft)
+tool_info.setWordWrap(True)
+layout.addWidget(tool_info)
 
         # Console Output
         self.output_console = QTextEdit()
