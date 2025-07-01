@@ -141,8 +141,9 @@ class BloodFangGUI(QMainWindow):
             grid.addWidget(btn, i, 2)
 
         layout.addLayout(grid)
+
         # Static tool info + parameter examples
-tool_info = QLabel("""
+        tool_info = QLabel("""
 <b style="font-size:14px;">Tool Descriptions:</b><br>
    <b>XSS Scanner</b>: Detects reflected/stored cross-site scripting via injected payloads in GET parameters.<br>
    <b>SQLi Scanner</b>: Probes injectable parameters vulnerable to SQL-based data leakage.<br>
@@ -150,7 +151,6 @@ tool_info = QLabel("""
    <b>RCE Scanner</b>: Attempts remote command execution via exposed input fields.<br>
    <b>Brute Forcer</b>: Performs credential spraying on login endpoints.<br>
    <b>API Finder</b>: Discovers exposed or undocumented API endpoints.<br><br>
-
 <b style="font-size:14px;">Parameter Examples:</b><br>
   XSS → URL: <code>http://target.com/search</code> | Param: <code>q</code><br>
   SQLi → URL: <code>http://target.com/product</code> | Param: <code>id</code><br>
@@ -158,18 +158,18 @@ tool_info = QLabel("""
   RCE → URL: <code>http://target.com/cmd</code> | Param: <code>exec</code><br>
   Brute Force → Base URL: <code>http://target.com</code> | Path: <code>/admin/login</code><br>
   API Finder → Base URL: <code>http://target.com</code> (scans /api/, /v1/, etc.)
-""")
-tool_info.setStyleSheet("""
-    color: #ff4d4d;
-    font-size: 12px;
-    background-color: rgba(30, 30, 30, 180);
-    padding: 8px;
-    border: 1px solid #ff1a1a;
-    border-radius: 5px;
-""")
-tool_info.setAlignment(Qt.AlignLeft)
-tool_info.setWordWrap(True)
-layout.addWidget(tool_info)
+        """)
+        tool_info.setStyleSheet("""
+            color: #ff4d4d;
+            font-size: 12px;
+            background-color: rgba(30, 30, 30, 180);
+            padding: 8px;
+            border: 1px solid #ff1a1a;
+            border-radius: 5px;
+        """)
+        tool_info.setAlignment(Qt.AlignLeft)
+        tool_info.setWordWrap(True)
+        layout.addWidget(tool_info)
 
         # Console Output
         self.output_console = QTextEdit()
@@ -246,4 +246,3 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     gui = BloodFangGUI()
     gui.show()
-    sys.exit(app.exec_())
