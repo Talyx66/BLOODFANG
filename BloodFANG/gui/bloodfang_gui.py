@@ -19,7 +19,7 @@ class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BLOODFANG - Offensive Security")
-        self.setGeometry(100, 100, 800, 650)
+        self.setGeometry(100, 100, 700, 600)
 
         self.setStyleSheet("""
             QMainWindow {
@@ -65,7 +65,7 @@ class BloodFangGUI(QMainWindow):
 
         # Background GIF logo
         self.bg_label = QLabel(self)
-        self.bg_label.setGeometry(0, 0, 200, 100)
+        self.bg_label.setGeometry(0, 0, 100, 100)
         self.bg_label.setScaledContents(True)
 
         self.bg_movie = QMovie(gif_path)
@@ -78,7 +78,7 @@ class BloodFangGUI(QMainWindow):
         # Red glow effect
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(40)
-        shadow.setColor(QColor(255, 0, 0, 180))
+        shadow.setColor(QColor(255, 0, 2, 180))
         shadow.setOffset(0)
         self.central_widget.setGraphicsEffect(shadow)
 
