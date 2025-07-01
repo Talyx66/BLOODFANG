@@ -65,7 +65,7 @@ class BloodFangGUI(QMainWindow):
 
         # Background GIF logo
         self.bg_label = QLabel(self)
-        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        self.bg_label.setGeometry(0, 0, 400), 200)
         self.bg_label.setScaledContents(True)
 
         self.bg_movie = QMovie(gif_path)
