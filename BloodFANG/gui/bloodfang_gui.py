@@ -1,4 +1,3 @@
-
 # gui/bloodfang_gui.py
 
 import sys
@@ -8,7 +7,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                             QLabel, QLineEdit, QPushButton, QTextEdit, QGridLayout)
+                             QLabel, QLineEdit, QPushButton, QTextEdit, QGridLayout, QHBoxLayout)
 from PyQt5.QtGui import QMovie, QColor
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
@@ -87,10 +86,23 @@ class BloodFangGUI(QMainWindow):
 
         layout = QVBoxLayout()
 
-        title = QLabel("BLOODFANG")
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 65px; font-weight: bold; color: #ff0000;")
-        layout.addWidget(title)
+        # Header bar with hacker name, title, and GitHub
+        header_layout = QHBoxLayout()
+
+        hacker_name_label = QLabel("Talyx")
+        hacker_name_label.setStyleSheet("font-size: 18px; color: #ff4d4d; font-weight: bold;")
+        header_layout.addWidget(hacker_name_label, alignment=Qt.AlignLeft)
+
+        title_label = QLabel("BLOODFANG")
+        title_label.setStyleSheet("font-size: 65px; font-weight: bold; color: #ff0000;")
+        title_label.setAlignment(Qt.AlignCenter)
+        header_layout.addWidget(title_label, stretch=1)
+
+        github_label = QLabel("github.com/Talyx")
+        github_label.setStyleSheet("font-size: 14px; color: #ff4d4d; font-style: italic;")
+        header_layout.addWidget(github_label, alignment=Qt.AlignRight)
+
+        layout.addLayout(header_layout)
 
         # Main input grid
         grid = QGridLayout()
