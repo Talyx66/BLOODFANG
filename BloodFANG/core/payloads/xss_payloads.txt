@@ -1,3 +1,25 @@
+<test
+<test//
+<test>
+<test x>
+<test x=y
+<test x=y//
+<test/oNxX=yYy//
+<test oNxX=yYy>
+<test onload=x
+<test/o%00nload=x
+<test sRc=xxx
+<test data=asa
+<test data=javascript:asa
+<svg x=y>
+<details x=y//
+<a href=x//
+<emBed x=y>
+<object x=y//
+<bGsOund sRc=x>
+<iSinDEx x=y//
+<aUdio x=y>
+<script x=y>
 "><script>alert(1)</script>
 '><img src=x onerror=alert(1)>
 "><svg onload=alert(1)>
