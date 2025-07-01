@@ -80,7 +80,7 @@ class BloodFangGUI(QMainWindow):
 
         title = QLabel("BLOODFANG")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #ff0000;")
+        title.setStyleSheet("font-size: 32px; font-weight: bold; color: #ff0000;")
         layout.addWidget(title)
 
         # Main input grid
