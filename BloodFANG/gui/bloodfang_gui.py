@@ -1,60 +1,49 @@
 import sys
 import os
-
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QVBoxLayout,
     QWidget, QLabel, QTextEdit, QHBoxLayout
 )
+from PyQt5.QtGui import QMovie, QPalette, QColor
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QMovie
 
-# Path fix: always find core modules and assets no matter where script is run
+# Fix for relative imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 sys.path.append(parent_dir)
 
-# Import core tool modules
+# Import all BLOODFANG modules
 from core import fangxss, fangsql, fanglfi, fangrce, fangbrute, fangapi
 
 class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BLOODFANG Offensive Toolkit")
-        self.setGeometry(100, 100, 900, 600)
-        self.setStyleSheet("background-color: black; color: crimson;")
+        self.setGeometry(100, 100, 1000, 650)
+        self.setStyleSheet("background: transparent; color: crimson;")
 
-        self.central_widget = QWidget()
+        # === Background GIF ===
+        self.bg_label = QLabel(self)
+        self.bg_label.setGeometry(0, 0, 1000, 650)
+        bg_path = os.path.join(parent_dir, "assets", "Talyxlogo6.gif")
+        if os.path.exists(bg_path):
+            self.movie = QMovie(bg_path)
+            self.bg_label.setMovie(self.movie)
+            self.movie.start()
+        else:
+            self.bg_label.setText("[!] Background GIF missing: Talyxlogo6.gif")
+
+        self.central_widget = QWidget(self)
+        self.central_widget.setStyleSheet("background: transparent;")
         self.setCentralWidget(self.central_widget)
 
+        # Layouts
         main_layout = QVBoxLayout()
+        title_label = QLabel("BLOODFANG")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size: 40px; font-weight: bold; color: crimson; background: transparent;")
+        main_layout.addWidget(title_label)
 
-        # Logo section with animated or static bat
-        logo_layout = QVBoxLayout()
-        logo_label = QLabel("BLOODFANG")
-        logo_label.setAlignment(Qt.AlignCenter)
-        logo_label.setStyleSheet("font-size: 40px; font-weight: bold; color: crimson;")
-        logo_layout.addWidget(logo_label)
-
-        bat_image = QLabel()
-        bat_path = os.path.join(parent_dir, "assets", "hacker_bat.gif")  # <-- make sure this file exists
-
-        if os.path.exists(bat_path):
-            if bat_path.endswith(".gif"):
-                movie = QMovie(bat_path)
-                bat_image.setMovie(movie)
-                movie.start()
-            else:
-                pixmap = QPixmap(bat_path)
-                bat_image.setPixmap(pixmap.scaledToHeight(150))
-            bat_image.setAlignment(Qt.AlignCenter)
-        else:
-            bat_image.setText("🦇 [Missing hacker_bat.gif in /assets]")
-            bat_image.setAlignment(Qt.AlignCenter)
-
-        logo_layout.addWidget(bat_image)
-        main_layout.addLayout(logo_layout)
-
-        # Button layout
         button_layout = QVBoxLayout()
         buttons = [
             ("XSS Scanner", self.run_xss),
@@ -64,38 +53,43 @@ class BloodFangGUI(QMainWindow):
             ("Brute Forcer", self.run_brute),
             ("API Endpoint Finder", self.run_api),
         ]
-
-        for label, callback in buttons:
-            btn = QPushButton(label)
+        for text, callback in buttons:
+            btn = QPushButton(text)
+            btn.clicked.connect(callback)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #111;
+                    background-color: rgba(0, 0, 0, 200);
                     color: crimson;
                     font-size: 16px;
-                    padding: 12px;
+                    padding: 10px;
                     border: 1px solid crimson;
-                    border-radius: 10px;
+                    border-radius: 8px;
                 }
                 QPushButton:hover {
                     background-color: crimson;
                     color: black;
                 }
             """)
-            btn.clicked.connect(callback)
             button_layout.addWidget(btn)
 
-        # Output log window
+        # Output field
         self.output = QTextEdit()
         self.output.setReadOnly(True)
-        self.output.setStyleSheet("background-color: #111; color: lime; font-family: monospace;")
+        self.output.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 200);
+            color: lime;
+            font-family: monospace;
+        """)
 
-        # Combine button + output layouts
         content_layout = QHBoxLayout()
         content_layout.addLayout(button_layout, 2)
         content_layout.addWidget(self.output, 5)
 
         main_layout.addLayout(content_layout)
         self.central_widget.setLayout(main_layout)
+
+        # Stack background under everything
+        self.bg_label.lower()
 
     def log(self, message):
         self.output.append(message)
@@ -138,6 +132,11 @@ class BloodFangGUI(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(0, 0, 0))
+    app.setPalette(palette)
+
     gui = BloodFangGUI()
     gui.show()
     sys.exit(app.exec_())
