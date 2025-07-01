@@ -98,7 +98,7 @@ class BloodFangGUI(QMainWindow):
         title_label.setAlignment(Qt.AlignCenter)
         header_layout.addWidget(title_label, stretch=1)
 
-        github_label = QLabel("github.com/Talyx")
+        github_label = QLabel("Github.com/Talyx66")
         github_label.setStyleSheet("font-size: 14px; color: #ff4d4d; font-style: italic;")
         header_layout.addWidget(github_label, alignment=Qt.AlignRight)
 
