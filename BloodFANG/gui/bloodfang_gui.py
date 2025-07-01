@@ -83,7 +83,7 @@ class BloodFangGUI(QMainWindow):
         self.central_widget.setGraphicsEffect(shadow)
 
         # Transparent overlay so GIF shows through
-        self.central_widget.setStyleSheet("background-color: rgba(0, 10, 10, 55);")
+        self.central_widget.setStyleSheet("background-color: rgba(10, 10, 20, 50);")
 
         layout = QVBoxLayout()
 
