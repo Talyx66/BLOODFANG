@@ -6,7 +6,7 @@ BLOODFANG is my second advanced red team offensive toolkit designed for rapid re
 
 ![screenshot 1](Screenshots/BLOODFANGss.png)
 
-![gif 1](Screenshots/BLOODFANGv.gif)
+![setup](Screenshots/BLOODFANGv.gif)
 
 # Features
 - Password Spraying
