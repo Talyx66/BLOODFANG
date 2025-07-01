@@ -86,9 +86,9 @@ class BloodFangGUI(QMainWindow):
 
         layout = QVBoxLayout()
 
-        title = QLabel("🧫 BloodFANG - Offensive Security Toolkit")
+        title = QLabel("BLOODFANG")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #ff0000;")
+        title.setStyleSheet("font-size: 55px; font-weight: bold; color: #ff0000;")
         layout.addWidget(title)
 
         # Main input grid
@@ -140,6 +140,20 @@ class BloodFangGUI(QMainWindow):
             grid.addWidget(btn, i, 2)
 
         layout.addLayout(grid)
+        # Static tool info panel
+        tool_info = QLabel("""
+        <b>Tool Descriptions:</b><br>
+           <b>XSS Scanner</b>: Detects reflected/stored cross-site scripting.<br>
+           <b>SQLi Scanner</b>: Probes for SQL injection vulnerabilities.<br>
+           <b>LFI Scanner</b>: Tests for file disclosure via Local File Inclusion.<br>
+           <b>RCE Scanner</b>: Attempts remote command execution on the server.<br>
+           <b>Brute Forcer</b>: Performs username/password spraying on login portals.<br>
+           <b>API Finder</b>: Enumerates and maps exposed API endpoints.
+        """)
+        tool_info.setStyleSheet("color: #ff4d4d; font-size: 12px; background-color: rgba(30,30,30,180); padding: 6px;")
+        tool_info.setAlignment(Qt.AlignLeft)
+        tool_info.setWordWrap(True)
+        layout.addWidget(tool_info)
 
         # Console Output
         self.output_console = QTextEdit()
