@@ -19,7 +19,7 @@ class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BLOODFANG - Offensive Security")
-        self.setGeometry(100, 100, 700, 600)
+        self.setGeometry(100, 100, 650, 650)
 
         self.setStyleSheet("""
             QMainWindow {
