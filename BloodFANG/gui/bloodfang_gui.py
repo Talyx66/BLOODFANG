@@ -74,13 +74,13 @@ class BloodFangGUI(QMainWindow):
         self.central_widget.setGraphicsEffect(shadow)
 
         # Semi-transparent overlay
-        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 30, 135);")
+        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 30, 50);")
 
         layout = QVBoxLayout()
 
         title = QLabel("BLOODFANG")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 32px; font-weight: bold; color: #ff0000;")
+        title.setStyleSheet("font-size: 40px; font-weight: bold; color: #ff0000;")
         layout.addWidget(title)
 
         # Main input grid
