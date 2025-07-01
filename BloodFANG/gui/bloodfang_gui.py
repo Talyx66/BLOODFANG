@@ -1,28 +1,63 @@
 # gui/bloodfang_gui.py
+
 import sys
 import os
 
-# Patch sys.path to include the parent directory so core modules work when running directly
+# Ensure core modules are accessible
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                             QLabel, QLineEdit, QPushButton, QTextEdit, QHBoxLayout,
-                             QGridLayout, QGraphicsDropShadowEffect)
+                             QLabel, QLineEdit, QPushButton, QTextEdit, QGridLayout)
 from PyQt5.QtGui import QMovie, QColor
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+
 from core import fangxss, fangsql, fanglfi, fangrce, fangbrute, fangapi
 
 class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BloodFANG - Offensive Security Toolkit")
-        self.setGeometry(100, 100, 900, 650)
-        self.setStyleSheet("color: #ff1a1a; font-family: Consolas;")
+        self.setGeometry(100, 100, 1000, 700)
+
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: black;
+            }
+            QLabel {
+                color: #ff4d4d;
+                font-family: Consolas;
+            }
+            QPushButton {
+                background-color: #1a1a1a;
+                color: #ff1a1a;
+                border: 1px solid #ff1a1a;
+                padding: 6px;
+                font-weight: bold;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #330000;
+            }
+            QLineEdit {
+                background-color: #222;
+                color: #ffcccc;
+                border: 1px solid #ff1a1a;
+                padding: 4px;
+                font-family: Consolas;
+            }
+            QTextEdit {
+                background-color: #111;
+                color: #ff4d4d;
+                font-family: Consolas;
+                font-size: 13px;
+            }
+        """)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
-        # Animated GIF background
+        # Background GIF logo
         self.bg_label = QLabel(self.central_widget)
         self.bg_label.setGeometry(0, 0, self.width(), self.height())
         self.bg_label.setScaledContents(True)
@@ -31,41 +66,92 @@ class BloodFangGUI(QMainWindow):
         self.bg_movie.start()
         self.bg_label.lower()
 
-        # Semi-transparent overlay for readability
-        self.central_widget.setStyleSheet("background-color: rgba(10, 10, 10, 180);")
-
-        # Red glow effect around central widget
+        # Red glow effect
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(30)
-        shadow.setColor(QColor(255, 0, 0, 180))  # Red glow
+        shadow.setBlurRadius(40)
+        shadow.setColor(QColor(255, 0, 0, 180))
         shadow.setOffset(0)
         self.central_widget.setGraphicsEffect(shadow)
 
-        main_layout = QVBoxLayout()
+        # Semi-transparent overlay
+        self.central_widget.setStyleSheet("background-color: rgba(10, 10, 10, 180);")
+
+        layout = QVBoxLayout()
 
         title = QLabel("🧫 BloodFANG - Offensive Security Toolkit")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 26px; font-weight: bold; color: #ff0000;")
-        main_layout.addWidget(title)
+        layout.addWidget(title)
 
-        # Grid for inputs and buttons
+        # Main input grid
         grid = QGridLayout()
 
-        # Add all widgets and buttons as you've already written...
-        # ... (content skipped for brevity – already included by you and untouched)
+        # XSS
+        self.xss_url = QLineEdit(); self.xss_url.setPlaceholderText("XSS Target URL")
+        self.xss_param = QLineEdit(); self.xss_param.setPlaceholderText("XSS Parameter")
+        xss_btn = QPushButton("Run XSS"); xss_btn.clicked.connect(self.run_xss)
 
-        self.central_widget.setLayout(main_layout)
+        # SQLi
+        self.sqli_url = QLineEdit(); self.sqli_url.setPlaceholderText("SQLi Target URL")
+        self.sqli_param = QLineEdit(); self.sqli_param.setPlaceholderText("SQLi Parameter")
+        sqli_btn = QPushButton("Run SQLi"); sqli_btn.clicked.connect(self.run_sqli)
 
+        # LFI
+        self.lfi_url = QLineEdit(); self.lfi_url.setPlaceholderText("LFI Target URL")
+        self.lfi_param = QLineEdit(); self.lfi_param.setPlaceholderText("LFI Parameter")
+        lfi_btn = QPushButton("Run LFI"); lfi_btn.clicked.connect(self.run_lfi)
+
+        # RCE
+        self.rce_url = QLineEdit(); self.rce_url.setPlaceholderText("RCE Target URL")
+        self.rce_param = QLineEdit(); self.rce_param.setPlaceholderText("RCE Parameter")
+        rce_btn = QPushButton("Run RCE"); rce_btn.clicked.connect(self.run_rce)
+
+        # Brute Force
+        self.brute_url = QLineEdit(); self.brute_url.setPlaceholderText("Brute Base URL")
+        self.brute_path = QLineEdit(); self.brute_path.setPlaceholderText("Login Path")
+        brute_btn = QPushButton("Run Brute Force"); brute_btn.clicked.connect(self.run_brute)
+
+        # API Discovery
+        self.api_url = QLineEdit(); self.api_url.setPlaceholderText("API Base URL")
+        api_btn = QPushButton("Discover API"); api_btn.clicked.connect(self.run_api)
+
+        # Add to grid
+        elements = [
+            (self.xss_url, self.xss_param, xss_btn),
+            (self.sqli_url, self.sqli_param, sqli_btn),
+            (self.lfi_url, self.lfi_param, lfi_btn),
+            (self.rce_url, self.rce_param, rce_btn),
+            (self.brute_url, self.brute_path, brute_btn),
+            (self.api_url, None, api_btn)
+        ]
+
+        for i, (url, param, btn) in enumerate(elements):
+            grid.addWidget(url, i, 0)
+            if param:
+                grid.addWidget(param, i, 1)
+            grid.addWidget(btn, i, 2)
+
+        layout.addLayout(grid)
+
+        # Console Output
+        self.output_console = QTextEdit()
+        self.output_console.setReadOnly(True)
+        layout.addWidget(self.output_console)
+
+        self.central_widget.setLayout(layout)
+
+    # Logging
     def log(self, msg):
         self.output_console.append(msg)
 
+    # Tool logic bindings
     def run_xss(self):
         url = self.xss_url.text().strip()
         param = self.xss_param.text().strip()
         if not url:
             self.log("[!] XSS Target URL is empty.")
             return
-        self.log(f"[+] Starting XSS scan on {url} with param '{param}'...\n")
+        self.log(f"[+] XSS scan on {url} with param '{param}'")
         fangxss.scan_xss(url, param, self.log)
 
     def run_sqli(self):
@@ -74,7 +160,7 @@ class BloodFangGUI(QMainWindow):
         if not url:
             self.log("[!] SQLi Target URL is empty.")
             return
-        self.log(f"[+] Starting SQLi scan on {url} with param '{param}'...\n")
+        self.log(f"[+] SQLi scan on {url} with param '{param}'")
         fangsql.scan_sqli(url, param, self.log)
 
     def run_lfi(self):
@@ -83,7 +169,7 @@ class BloodFangGUI(QMainWindow):
         if not url:
             self.log("[!] LFI Target URL is empty.")
             return
-        self.log(f"[+] Starting LFI scan on {url} with param '{param}'...\n")
+        self.log(f"[+] LFI scan on {url} with param '{param}'")
         fanglfi.scan_lfi(url, param, self.log)
 
     def run_rce(self):
@@ -92,20 +178,18 @@ class BloodFangGUI(QMainWindow):
         if not url:
             self.log("[!] RCE Target URL is empty.")
             return
-        self.log(f"[+] Starting RCE scan on {url} with param '{param}'...\n")
+        self.log(f"[+] RCE scan on {url} with param '{param}'")
         fangrce.scan_rce(url, param, self.log)
 
     def run_brute(self):
         url = self.brute_url.text().strip()
         path = self.brute_path.text().strip()
         if not url or not path:
-            self.log("[!] Brute Force Base URL or Login Path is empty.")
+            self.log("[!] Brute Force URL or path is empty.")
             return
-
         usernames = ["admin", "user", "test"]
-        passwords = ["password", "123456", "admin123"]
-
-        self.log(f"[+] Starting Brute Force on {url}{path}...\n")
+        passwords = ["123456", "admin123", "password"]
+        self.log(f"[+] Brute Force on {url}{path}")
         fangbrute.password_spray(url, usernames, passwords, path, self.log)
 
     def run_api(self):
@@ -113,7 +197,7 @@ class BloodFangGUI(QMainWindow):
         if not url:
             self.log("[!] API Base URL is empty.")
             return
-        self.log(f"[+] Starting API endpoint discovery on {url}...\n")
+        self.log(f"[+] Discovering API endpoints on {url}")
         fangapi.discover_api_endpoints(url, logger=self.log)
 
 if __name__ == "__main__":
@@ -121,4 +205,3 @@ if __name__ == "__main__":
     gui = BloodFangGUI()
     gui.show()
     sys.exit(app.exec_())
-
