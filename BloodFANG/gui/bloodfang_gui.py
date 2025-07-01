@@ -69,12 +69,12 @@ class BloodFangGUI(QMainWindow):
         # Red glow effect
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(40)
-        shadow.setColor(QColor(255, 0, 0, 60))
+        shadow.setColor(QColor(255, 0, 0, 100))
         shadow.setOffset(0)
         self.central_widget.setGraphicsEffect(shadow)
 
         # Semi-transparent overlay
-        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 30, 50);")
+        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 20, 100);")
 
         layout = QVBoxLayout()
 
