@@ -4,9 +4,9 @@
 # Description
 BLOODFANG is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed
 
-![BLOODFANG screenshot](Screenshots/BLOODFANGss.png)
+![BloodFang GIF](Screenshots/BLOODFANGv.gif)
+![BloodFang Screenshot](Screenshots/BLOODFANGss.png)
 
-![GIF](Screenshots/BLOODFANGv.gif)
 
 # Features
 - Password Spraying
