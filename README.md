@@ -10,7 +10,7 @@ BLOODFANG is my second advanced red team offensive toolkit designed for rapid re
 ### Screenshot
 ![Screenshot](Screenshots/BLOODFANGss.png)
 
-### Live Demo GIF
+### Live Demo 
 ![Live Demo](Screenshots/BLOODFANGv.gif)
 
 
@@ -30,8 +30,9 @@ pip install -r requirements.txt
 python3 bloodfang.py   (or)   python3 Bloodfang_gui.py
 Follow on-screen prompts to select tools and targets
 
-# Contribution
-Contributions welcome! Open issues or submit pull requests
-
 # Disclaimer
-Use responsibly with explicit permission. Unauthorized use is illegal.
+Use responsibly with explicit permission. Unauthorized use is illegal and prohibited.
+
+Follow for future projects and tools. Happy hunting!
+
+-Talyx66 aka Talyx
