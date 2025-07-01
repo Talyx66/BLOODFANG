@@ -174,7 +174,7 @@ class BloodFangGUI(QMainWindow):
         """)
         tool_info.setStyleSheet("""
             color: #ff4d4d;
-            font-size: 12px;
+            font-size: 10px;
             background-color: rgba(30, 30, 30, 180);
             padding: 8px;
             border: 1px solid #ff1a1a;
