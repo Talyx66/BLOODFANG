@@ -1,3 +1,4 @@
+
 # gui/bloodfang_gui.py
 
 import sys
@@ -99,7 +100,7 @@ class BloodFangGUI(QMainWindow):
         header_layout.addWidget(title_label, stretch=1)
 
         github_label = QLabel("Github.com/Talyx66")
-        github_label.setStyleSheet("font-size: 14px; color: #ff4d4d; font-style: italic;")
+        github_label.setStyleSheet("font-size: 16px; color: #ff4d4d; font-style: italic;")
         header_layout.addWidget(github_label, alignment=Qt.AlignRight)
 
         layout.addLayout(header_layout)
