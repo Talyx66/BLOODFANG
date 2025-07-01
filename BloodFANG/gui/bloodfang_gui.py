@@ -65,7 +65,7 @@ class BloodFangGUI(QMainWindow):
 
         # Background GIF logo
         self.bg_label = QLabel(self)
-        self.bg_label.setGeometry(0, 0, 100, 100)
+        self.bg_label.setGeometry(0, 0, 150, 100)
         self.bg_label.setScaledContents(True)
 
         self.bg_movie = QMovie(gif_path)
@@ -83,7 +83,7 @@ class BloodFangGUI(QMainWindow):
         self.central_widget.setGraphicsEffect(shadow)
 
         # Transparent overlay so GIF shows through
-        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 20, 65);")
+        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 20, 55);")
 
         layout = QVBoxLayout()
 
