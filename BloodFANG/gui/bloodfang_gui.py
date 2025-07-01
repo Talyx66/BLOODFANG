@@ -18,8 +18,8 @@ from core import fangxss, fangsql, fanglfi, fangrce, fangbrute, fangapi
 class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("BloodFANG - Offensive Security Toolkit")
-        self.setGeometry(100, 100, 1000, 700)
+        self.setWindowTitle("BLOODFANG - Offensive Security")
+        self.setGeometry(100, 100, 1000, 800)
 
         self.setStyleSheet("""
             QMainWindow {
