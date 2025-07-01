@@ -1,26 +1,19 @@
+import os
 import requests
-import random
 
-def load_payloads(path="core/payloads/sql_payloads.txt"):
-    with open(path, 'r') as f:
-        return [line.strip() for line in f if line.strip()]
+def load_payloads():
+    base = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(base, "payloads", "sqli_payloads.txt"), "r") as f:
+        return [p.strip() for p in f.readlines() if p.strip()]
 
-def get_random_user_agent():
-    with open("data/user_agents.txt", "r") as f:
-        return random.choice(f.read().splitlines())
-
-def scan_sqli(target_url, param="id", logger=print):
+def scan_sqli(url, param, logger=print):
     payloads = load_payloads()
-    headers = {"User-Agent": get_random_user_agent()}
-    logger(f"[>] Scanning {target_url} for SQL Injection on parameter '{param}'")
-
+    logger(f"[SQLi] Loaded {len(payloads)} payloads")
     for payload in payloads:
-        test_url = f"{target_url}?{param}={payload}"
+        test_url = f"{url}?{param}={payload}"
         try:
-            r = requests.get(test_url, headers=headers, timeout=8)
-            # Simple error-based detection example:
-            errors = ["you have an error in your sql syntax", "warning: mysql", "unclosed quotation mark"]
-            if any(e.lower() in r.text.lower() for e in errors):
-                logger(f"[!!] Possible SQL Injection found with payload: {payload}")
+            r = requests.get(test_url, timeout=5)
+            if any(err in r.text.lower() for err in ["sql", "syntax", "mysql", "error"]):
+                logger(f"[+] SQLi detected with payload: {payload}")
         except Exception as e:
-            logger(f"[X] Error with payload {payload}: {e}")
+            logger(f"[!] Error: {e}")
