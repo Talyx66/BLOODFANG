@@ -45,4 +45,4 @@ Use responsibly with explicit permission. Unauthorized use is illegal and prohib
 
 Follow for future projects and tools. Happy hunting!
 
--Talyx66 aka Talyx
+-Talyx
