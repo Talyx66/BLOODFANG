@@ -246,3 +246,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     gui = BloodFangGUI()
     gui.show()
+    sys.exit(app.exec_())
