@@ -89,7 +89,7 @@ class BloodFangGUI(QMainWindow):
 
         title = QLabel("BLOODFANG")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 55px; font-weight: bold; color: #ff0000;")
+        title.setStyleSheet("font-size: 65px; font-weight: bold; color: #ff0000;")
         layout.addWidget(title)
 
         # Main input grid
@@ -164,7 +164,7 @@ class BloodFangGUI(QMainWindow):
             border: 1px solid #ff1a1a;
             border-radius: 5px;
         """)        
-        tool_info.setStyleSheet("color: #ff4d4d; font-size: 12px; background-color: rgba(30,30,30,180); padding: 6px;")
+        tool_info.setStyleSheet("color: #ff4d4d; font-size: 14px; background-color: rgba(30,30,30,180); padding: 6px;")
         tool_info.setAlignment(Qt.AlignLeft)
         tool_info.setWordWrap(True)
         layout.addWidget(tool_info)
