@@ -1,142 +1,219 @@
+# gui/bloodfang_gui.py
+
 import sys
 import os
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QPushButton, QVBoxLayout,
-    QWidget, QLabel, QTextEdit, QHBoxLayout
-)
-from PyQt5.QtGui import QMovie, QPalette, QColor
+
+# Ensure core modules are accessible
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QLabel, QLineEdit, QPushButton, QTextEdit, QGridLayout)
+from PyQt5.QtGui import QMovie, QColor
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
-# Fix for relative imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
-sys.path.append(parent_dir)
-
-# Import all BLOODFANG modules
 from core import fangxss, fangsql, fanglfi, fangrce, fangbrute, fangapi
 
 class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("BLOODFANG Offensive Toolkit")
-        self.setGeometry(100, 100, 1000, 650)
-        self.setStyleSheet("background: transparent; color: crimson;")
+        self.setWindowTitle("BloodFANG - Offensive Security Toolkit")
+        self.setGeometry(100, 100, 1000, 700)
 
-        # === Background GIF ===
-        self.bg_label = QLabel(self)
-        self.bg_label.setGeometry(0, 0, 1000, 650)
-        bg_path = os.path.join(parent_dir, "assets", "Talyxlogo6.gif")
-        if os.path.exists(bg_path):
-            self.movie = QMovie(bg_path)
-            self.bg_label.setMovie(self.movie)
-            self.movie.start()
-        else:
-            self.bg_label.setText("[!] Background GIF missing: Talyxlogo6.gif")
-
-        self.central_widget = QWidget(self)
-        self.central_widget.setStyleSheet("background: transparent;")
-        self.setCentralWidget(self.central_widget)
-
-        # Layouts
-        main_layout = QVBoxLayout()
-        title_label = QLabel("BLOODFANG")
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 40px; font-weight: bold; color: crimson; background: transparent;")
-        main_layout.addWidget(title_label)
-
-        button_layout = QVBoxLayout()
-        buttons = [
-            ("XSS Scanner", self.run_xss),
-            ("SQLi Scanner", self.run_sqli),
-            ("LFI Scanner", self.run_lfi),
-            ("RCE Scanner", self.run_rce),
-            ("Brute Forcer", self.run_brute),
-            ("API Endpoint Finder", self.run_api),
-        ]
-        for text, callback in buttons:
-            btn = QPushButton(text)
-            btn.clicked.connect(callback)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(0, 0, 0, 200);
-                    color: crimson;
-                    font-size: 16px;
-                    padding: 10px;
-                    border: 1px solid crimson;
-                    border-radius: 8px;
-                }
-                QPushButton:hover {
-                    background-color: crimson;
-                    color: black;
-                }
-            """)
-            button_layout.addWidget(btn)
-
-        # Output field
-        self.output = QTextEdit()
-        self.output.setReadOnly(True)
-        self.output.setStyleSheet("""
-            background-color: rgba(0, 0, 0, 200);
-            color: lime;
-            font-family: monospace;
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: black;
+            }
+            QLabel {
+                color: #ff4d4d;
+                font-family: Consolas;
+            }
+            QPushButton {
+                background-color: #1a1a1a;
+                color: #ff1a1a;
+                border: 1px solid #ff1a1a;
+                padding: 6px;
+                font-weight: bold;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #330000;
+            }
+            QLineEdit {
+                background-color: #222;
+                color: #ffcccc;
+                border: 1px solid #ff1a1a;
+                padding: 4px;
+                font-family: Consolas;
+            }
+            QTextEdit {
+                background-color: #111;
+                color: #ff4d4d;
+                font-family: Consolas;
+                font-size: 13px;
+            }
         """)
 
-        content_layout = QHBoxLayout()
-        content_layout.addLayout(button_layout, 2)
-        content_layout.addWidget(self.output, 5)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
 
-        main_layout.addLayout(content_layout)
-        self.central_widget.setLayout(main_layout)
+        # Load and check GIF path
+        gif_path = os.path.join(os.path.dirname(__file__), "assets", "Talyxlogo6.gif")
+        if not os.path.exists(gif_path):
+            print(f"[!] GIF not found at: {gif_path}")
 
-        # Stack background under everything
+        # Background GIF logo
+        self.bg_label = QLabel(self)
+        self.bg_label.setGeometry(0, 0, self.width(), self.height())
+        self.bg_label.setScaledContents(True)
+
+        self.bg_movie = QMovie(gif_path)
+        if not self.bg_movie.isValid():
+            print("[!] Invalid GIF file or path.")
+        self.bg_label.setMovie(self.bg_movie)
+        self.bg_movie.start()
         self.bg_label.lower()
 
-    def log(self, message):
-        self.output.append(message)
+        # Red glow effect
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(40)
+        shadow.setColor(QColor(255, 0, 0, 180))
+        shadow.setOffset(0)
+        self.central_widget.setGraphicsEffect(shadow)
 
+        # Transparent overlay so GIF shows through
+        self.central_widget.setStyleSheet("background-color: rgba(20, 20, 20, 100);")
+
+        layout = QVBoxLayout()
+
+        title = QLabel("🧫 BloodFANG - Offensive Security Toolkit")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 26px; font-weight: bold; color: #ff0000;")
+        layout.addWidget(title)
+
+        # Main input grid
+        grid = QGridLayout()
+
+        # XSS
+        self.xss_url = QLineEdit(); self.xss_url.setPlaceholderText("XSS Target URL")
+        self.xss_param = QLineEdit(); self.xss_param.setPlaceholderText("XSS Parameter")
+        xss_btn = QPushButton("Run XSS"); xss_btn.clicked.connect(self.run_xss)
+
+        # SQLi
+        self.sqli_url = QLineEdit(); self.sqli_url.setPlaceholderText("SQLi Target URL")
+        self.sqli_param = QLineEdit(); self.sqli_param.setPlaceholderText("SQLi Parameter")
+        sqli_btn = QPushButton("Run SQLi"); sqli_btn.clicked.connect(self.run_sqli)
+
+        # LFI
+        self.lfi_url = QLineEdit(); self.lfi_url.setPlaceholderText("LFI Target URL")
+        self.lfi_param = QLineEdit(); self.lfi_param.setPlaceholderText("LFI Parameter")
+        lfi_btn = QPushButton("Run LFI"); lfi_btn.clicked.connect(self.run_lfi)
+
+        # RCE
+        self.rce_url = QLineEdit(); self.rce_url.setPlaceholderText("RCE Target URL")
+        self.rce_param = QLineEdit(); self.rce_param.setPlaceholderText("RCE Parameter")
+        rce_btn = QPushButton("Run RCE"); rce_btn.clicked.connect(self.run_rce)
+
+        # Brute Force
+        self.brute_url = QLineEdit(); self.brute_url.setPlaceholderText("Brute Base URL")
+        self.brute_path = QLineEdit(); self.brute_path.setPlaceholderText("Login Path")
+        brute_btn = QPushButton("Run Brute Force"); brute_btn.clicked.connect(self.run_brute)
+
+        # API Discovery
+        self.api_url = QLineEdit(); self.api_url.setPlaceholderText("API Base URL")
+        api_btn = QPushButton("Discover API"); api_btn.clicked.connect(self.run_api)
+
+        # Add to grid
+        elements = [
+            (self.xss_url, self.xss_param, xss_btn),
+            (self.sqli_url, self.sqli_param, sqli_btn),
+            (self.lfi_url, self.lfi_param, lfi_btn),
+            (self.rce_url, self.rce_param, rce_btn),
+            (self.brute_url, self.brute_path, brute_btn),
+            (self.api_url, None, api_btn)
+        ]
+
+        for i, (url, param, btn) in enumerate(elements):
+            grid.addWidget(url, i, 0)
+            if param:
+                grid.addWidget(param, i, 1)
+            grid.addWidget(btn, i, 2)
+
+        layout.addLayout(grid)
+
+        # Console Output
+        self.output_console = QTextEdit()
+        self.output_console.setReadOnly(True)
+        layout.addWidget(self.output_console)
+
+        self.central_widget.setLayout(layout)
+
+    def resizeEvent(self, event):
+        self.bg_label.resize(self.size())
+        super().resizeEvent(event)
+
+    # Logging
+    def log(self, msg):
+        self.output_console.append(msg)
+
+    # Tool logic bindings
     def run_xss(self):
-        try:
-            fangxss.scan_xss("http://example.com", "q", self.log)
-        except Exception as e:
-            self.log(f"[XSS] Error: {e}")
+        url = self.xss_url.text().strip()
+        param = self.xss_param.text().strip()
+        if not url:
+            self.log("[!] XSS Target URL is empty.")
+            return
+        self.log(f"[+] XSS scan on {url} with param '{param}'")
+        fangxss.scan_xss(url, param, self.log)
 
     def run_sqli(self):
-        try:
-            fangsql.run()
-        except Exception as e:
-            self.log(f"[SQLi] Error: {e}")
+        url = self.sqli_url.text().strip()
+        param = self.sqli_param.text().strip()
+        if not url:
+            self.log("[!] SQLi Target URL is empty.")
+            return
+        self.log(f"[+] SQLi scan on {url} with param '{param}'")
+        fangsql.scan_sqli(url, param, self.log)
 
     def run_lfi(self):
-        try:
-            fanglfi.run()
-        except Exception as e:
-            self.log(f"[LFI] Error: {e}")
+        url = self.lfi_url.text().strip()
+        param = self.lfi_param.text().strip()
+        if not url:
+            self.log("[!] LFI Target URL is empty.")
+            return
+        self.log(f"[+] LFI scan on {url} with param '{param}'")
+        fanglfi.scan_lfi(url, param, self.log)
 
     def run_rce(self):
-        try:
-            fangrce.run()
-        except Exception as e:
-            self.log(f"[RCE] Error: {e}")
+        url = self.rce_url.text().strip()
+        param = self.rce_param.text().strip()
+        if not url:
+            self.log("[!] RCE Target URL is empty.")
+            return
+        self.log(f"[+] RCE scan on {url} with param '{param}'")
+        fangrce.scan_rce(url, param, self.log)
 
     def run_brute(self):
-        try:
-            fangbrute.run()
-        except Exception as e:
-            self.log(f"[Brute] Error: {e}")
+        url = self.brute_url.text().strip()
+        path = self.brute_path.text().strip()
+        if not url or not path:
+            self.log("[!] Brute Force URL or path is empty.")
+            return
+        usernames = ["admin", "user", "test"]
+        passwords = ["123456", "admin123", "password"]
+        self.log(f"[+] Brute Force on {url}{path}")
+        fangbrute.password_spray(url, usernames, passwords, path, self.log)
 
     def run_api(self):
-        try:
-            fangapi.run()
-        except Exception as e:
-            self.log(f"[API] Error: {e}")
+        url = self.api_url.text().strip()
+        if not url:
+            self.log("[!] API Base URL is empty.")
+            return
+        self.log(f"[+] Discovering API endpoints on {url}")
+        fangapi.discover_api_endpoints(url, logger=self.log)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor(0, 0, 0))
-    app.setPalette(palette)
-
     gui = BloodFangGUI()
     gui.show()
     sys.exit(app.exec_())
