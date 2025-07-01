@@ -57,11 +57,19 @@ class BloodFangGUI(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
+        # Load and check GIF path
+        gif_path = os.path.join(os.path.dirname(__file__), "assets", "Talyxlogo6.gif")
+        if not os.path.exists(gif_path):
+            print(f"[!] GIF not found at: {gif_path}")
+
         # Background GIF logo
-        self.bg_label = QLabel(self.central_widget)
+        self.bg_label = QLabel(self)
         self.bg_label.setGeometry(0, 0, self.width(), self.height())
         self.bg_label.setScaledContents(True)
-        self.bg_movie = QMovie("gui/assets/Talyxlogo6.gif")
+
+        self.bg_movie = QMovie(gif_path)
+        if not self.bg_movie.isValid():
+            print("[!] Invalid GIF file or path.")
         self.bg_label.setMovie(self.bg_movie)
         self.bg_movie.start()
         self.bg_label.lower()
@@ -69,18 +77,18 @@ class BloodFangGUI(QMainWindow):
         # Red glow effect
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(40)
-        shadow.setColor(QColor(255, 0, 0, 100))
+        shadow.setColor(QColor(255, 0, 0, 180))
         shadow.setOffset(0)
         self.central_widget.setGraphicsEffect(shadow)
 
-        # Semi-transparent overlay
+        # Transparent overlay so GIF shows through
         self.central_widget.setStyleSheet("background-color: rgba(20, 20, 20, 100);")
 
         layout = QVBoxLayout()
 
         title = QLabel("BLOODFANG")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 40px; font-weight: bold; color: #ff0000;")
+        title.setStyleSheet("font-size: 50px; font-weight: bold; color: #ff0000;")
         layout.addWidget(title)
 
         # Main input grid
@@ -139,6 +147,10 @@ class BloodFangGUI(QMainWindow):
         layout.addWidget(self.output_console)
 
         self.central_widget.setLayout(layout)
+
+    def resizeEvent(self, event):
+        self.bg_label.resize(self.size())
+        super().resizeEvent(event)
 
     # Logging
     def log(self, msg):
