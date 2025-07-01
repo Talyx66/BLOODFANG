@@ -1,8 +1,8 @@
+
 import requests
 import random
-
+import os
 def load_payloads(path="core/payloads/xss_payloads.txt"):
-    import os
 
 def load_payloads():
     base_dir = os.path.dirname(os.path.abspath(__file__))
