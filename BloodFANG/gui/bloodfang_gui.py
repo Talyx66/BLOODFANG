@@ -1,3 +1,4 @@
+
 # gui/bloodfang_gui.py
 
 import sys
@@ -140,16 +141,29 @@ class BloodFangGUI(QMainWindow):
             grid.addWidget(btn, i, 2)
 
         layout.addLayout(grid)
-        # Static tool info panel
+        # Static tool info + parameter examples
         tool_info = QLabel("""
-        <b>Tool Descriptions:</b><br>
+        <b style="font-size:14px;">Tool Descriptions:</b><br>
            <b>XSS Scanner</b>: Detects reflected/stored cross-site scripting.<br>
-           <b>SQLi Scanner</b>: Probes for SQL injection vulnerabilities.<br>
-           <b>LFI Scanner</b>: Tests for file disclosure via Local File Inclusion.<br>
-           <b>RCE Scanner</b>: Attempts remote command execution on the server.<br>
-           <b>Brute Forcer</b>: Performs username/password spraying on login portals.<br>
-           <b>API Finder</b>: Enumerates and maps exposed API endpoints.
+           <b>SQLi Scanner</b>: Probes for SQL injection flaws via input params.<br>
+           <b>LFI Scanner</b>: Attempts local file reads using traversal payloads.<br>
+           <b>RCE Scanner</b>: Tests for command execution via vulnerable input.<br>
+           <b>Brute Forcer</b>: Username/password spray for weak logins.<br>
+           <b>API Finder</b>: Scans for common REST API endpoints.<br><br>
+
+        <b style="font-size:14px;">Parameter Examples:</b><br>
+        XSS/SQLi/LFI/RCE Param: <code>q</code>, <code>search</code>, <code>id</code>, <code>file</code><br>
+        Brute Force Path: <code>/login</code>, <code>/admin/auth</code><br>
+        API Base URL: <code>http://target.com</code> or <code>http://target.com/api</code>
         """)
+        tool_info.setStyleSheet("""
+            color: #ff4d4d;
+            font-size: 12px;
+            background-color: rgba(30, 30, 30, 180);
+            padding: 8px;
+            border: 1px solid #ff1a1a;
+            border-radius: 5px;
+        """)        
         tool_info.setStyleSheet("color: #ff4d4d; font-size: 12px; background-color: rgba(30,30,30,180); padding: 6px;")
         tool_info.setAlignment(Qt.AlignLeft)
         tool_info.setWordWrap(True)
