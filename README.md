@@ -21,11 +21,15 @@ BLOODFANG is my second advanced red team offensive toolkit designed for rapid re
 > BLOODFANG is a relentless red-team toolkit I forged in fire and wrote in Python.
 
 # Features
-- Password Spraying
-- Brute Force Attacks
-- API Endpoint Discovery
-- Modular and expandable
-- Simple CLI interface
+-XSS Scanning  
+-SQL Injection Scanning  
+-Local File Inclusion (LFI) Detection  
+-Remote Code Execution (RCE) Testing  
+-Password Spraying  
+-Brute Force Attacks  
+-API Endpoint Discovery  
+-Custom Payload Support  
+-Live Console Output 
 
 # Installation
 git clone https://github.com/Talyx66/BLOODFANG.git
