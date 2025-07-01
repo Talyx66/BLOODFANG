@@ -1,0 +1,17 @@
+admin
+administrator
+root
+user
+test
+guest
+demo
+sysadmin
+manager
+support
+helpdesk
+john
+jane
+superuser
+dev
+qa
+security
