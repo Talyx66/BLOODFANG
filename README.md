@@ -12,7 +12,7 @@ BLOODFANG is my second advanced red team offensive toolkit designed for rapid re
 - Simple CLI interface
 
 # Installation
-git clone https://github.com/yourusername/BLOODFANG.git
+git clone https://github.com/Talyx66/BLOODFANG.git
 cd BLOODFANG
 pip install -r requirements.txt
 
