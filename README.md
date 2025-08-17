@@ -12,8 +12,8 @@
 * *BLOODFANG is a powerful offensive security toolkit designed strictly for authorized testing, red teaming, and ethical hacking purposes. Unauthorized use against systems, networks, or devices without explicit permission is illegal and strictly prohibited. The creator and contributors of BLOODFANG are not responsible for any misuse, damages, or legal consequences resulting from improper use of this software. Users must comply with all applicable laws and obtain proper authorization before deployment* * 
 
 ## Description
+
 BLOODFANG is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed
----
 
 ## BLOODFANG Preview
 
