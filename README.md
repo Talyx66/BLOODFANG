@@ -19,7 +19,7 @@
 ### live preview
 ![Live Demo](Screenshots/BLOODFANGv.gif)
 
-#### Updates 8/17/25
+#### Recent Updates: 8/17/25
 ```
 Updated ReadME
 ```
