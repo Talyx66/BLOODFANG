@@ -19,6 +19,9 @@
 ### live preview
 ![Live Demo](Screenshots/BLOODFANGv.gif)
 
+``` Updates 8/17/2025
+Updated ReadME
+```
 ## Description
 
 BLOODFANG is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed
