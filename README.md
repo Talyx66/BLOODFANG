@@ -21,7 +21,7 @@
 
 ### Recent Updates: 8/17/25
 ```
-Updated ReadME
+Updated ReadME, Minor syntax indentation fixes
 ```
 
 ## Description
