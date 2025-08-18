@@ -48,6 +48,6 @@ pip install -r requirements.txt
 python3 bloodfang.py   (or)   python3 Bloodfang_gui.py
 Follow on-screen prompts to select tools and targets
 
-# Engineered by:
+# Engineered & Developed by:
 Talyx   https://github.com/Talyx66
----
+
