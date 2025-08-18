@@ -42,14 +42,14 @@ BLOODFANG is my second advanced red team offensive toolkit designed for rapid re
 -Custom Payload Support  
 -Live Console Output 
 
-## |Installation|
+## Installation
 ```
 git clone https://github.com/Talyx66/BLOODFANG.git
 cd BLOODFANG
 pip install -r requirements.txt
 ```
 ---
-## |Usage|
+## Usage
 python3 bloodfang.py   (or)   python3 Bloodfang_gui.py
 Follow on-screen prompts to select tools and targets
 
