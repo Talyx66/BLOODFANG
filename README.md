@@ -23,7 +23,7 @@
 
 BLOODFANG is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed
 
-> BLOODFANG is a relentless red-team toolkit I forged in fire and wrote in Python.
+> BLOODFANG is a relentless red-team toolkit forged in fire 
 ---
 
 ## Features
