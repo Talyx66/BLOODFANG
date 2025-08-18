@@ -16,7 +16,7 @@
 ### Screenshot
 ![Screenshot](Screenshots/BLOODFANGss.png)
 
-### Preview
+### live preview
 ![Live Demo](Screenshots/BLOODFANGv.gif)
 
 ## Description
