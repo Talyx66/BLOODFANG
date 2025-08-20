@@ -4,6 +4,9 @@
 ![Language](https://img.shields.io/badge/Python-3.13.5-blue?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Live-green?style=plastic)
 ![Creator](https://img.shields.io/badge/Made%20by-Talyx-purple?style=flat&logo=github)
+![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)
+![OS](https://img.shields.io/badge/OS-Kali_Linux%20%7C%20Ubuntu%20%7C%20Windows-blue?style=flat-square)
+![Modules](https://img.shields.io/badge/Modules-6-yellow?style=flat-square)
 
 # BLOODFANG
 
@@ -24,7 +27,7 @@ Updated ReadME, Minor syntax indentation fixes
 
 ## Description
 
-BLOODFANG is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed
+BLOODFANG, part of the fang family, is my second advanced red team offensive toolkit designed for rapid reconnaissance, password spraying, brute forcing, API endpoint discovery, and more. Perfect for penetration testers who demand precision and speed
 
 > BLOODFANG is a relentless red-team toolkit forged in fire 
 ---
