@@ -1,4 +1,8 @@
 # gui/bloodfang_gui.py
+# Drop-in replacement — preserves repo layout and assets.
+# Features: PyQt5 GUI, adaptive layout, threaded worker, persistent geometry,
+# module preview with explicit param usage & sample payloads from core/payloads.
+
 import sys
 import os
 import traceback
@@ -17,30 +21,20 @@ from PyQt5.QtGui import QMovie, QColor, QFont, QTextCursor
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
-# Project paths and import roots
+# Paths
 HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = HERE.parent  # BloodFANG/
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-CORE_DIR = PROJECT_ROOT / "core"  # fallback if modules import as core.*
-CORE_PACKAGE_NAMES = ["core", "BloodFANG.core"]  # try both import roots
+CORE_PACKAGE_NAMES = ["core", "BloodFANG.core"]
 PAYLOADS_DIR = PROJECT_ROOT / "core" / "payloads"
-
-def discover_core_module_names(core_dir):
-    mods = []
-    try:
-        for p in sorted(core_dir.glob("fang*.py")):
-            if not p.name.startswith("__"):
-                mods.append(p.stem)  # fangxss
-    except Exception:
-        pass
-    return mods
 
 def read_payload_file(fname: Path):
     try:
         if fname.exists():
-            return [line.strip() for line in fname.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
+            lines = [line.rstrip() for line in fname.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
+            return lines
     except Exception:
         pass
     return []
@@ -126,16 +120,14 @@ class WorkerThread(QThread):
                         tb = traceback.format_exc()
                         self.emit_log(tb, level="DEBUG")
 
-            if not invoked:
-                # last attempt: try function hint without package
-                if self.func_hint:
-                    alt = getattr(module, self.func_hint, None)
-                    if callable(alt):
-                        try:
-                            alt(self.target, self._module_emit, self._stop_event)
-                            invoked = True
-                        except Exception as e:
-                            self.emit_log(f"Alt call {self.func_hint} failed: {e}", level="ERROR")
+            if not invoked and self.func_hint:
+                alt = getattr(module, self.func_hint, None)
+                if callable(alt):
+                    try:
+                        alt(self.target, self._module_emit, self._stop_event)
+                        invoked = True
+                    except Exception as e:
+                        self.emit_log(f"Alt call {self.func_hint} failed: {e}", level="ERROR")
 
             if not invoked:
                 self.emit_log(f"No compatible entry point found for module '{self.module_name}'.", level="ERROR")
@@ -162,47 +154,23 @@ class BloodFangGUI(QMainWindow):
             except Exception:
                 pass
 
-        self.setMinimumSize(900, 600)
+        self.setMinimumSize(1000, 640)
 
+        # Styles (preserve your theme)
         self.setStyleSheet("""
-            QMainWindow {
-                background-color: black;
-            }
-            QLabel {
-                color: #ff4d4d;
-                font-family: Consolas;
-            }
-            QPushButton {
-                background-color: #1a1a1a;
-                color: #ff1a1a;
-                border: 1px solid #ff1a1a;
-                padding: 6px;
-                font-weight: bold;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #330000;
-            }
-            QLineEdit {
-                background-color: #222;
-                color: #ffcccc;
-                border: 1px solid #ff1a1a;
-                padding: 4px;
-                font-family: Consolas;
-            }
-            QTextEdit {
-                background-color: #111;
-                color: #ff4d4d;
-                font-family: Consolas;
-                font-size: 13px;
-            }
+            QMainWindow { background-color: black; }
+            QLabel { color: #ff4d4d; font-family: Consolas; }
+            QPushButton { background-color: #1a1a1a; color: #ff1a1a; border: 1px solid #ff1a1a; padding: 6px; font-weight: bold; border-radius: 4px; }
+            QPushButton:hover { background-color: #330000; }
+            QLineEdit { background-color: #222; color: #ffcccc; border: 1px solid #ff1a1a; padding: 4px; font-family: Consolas; }
+            QTextEdit { background-color: #111; color: #ff4d4d; font-family: Consolas; font-size: 13px; }
         """)
 
         # Main layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         main_v = QVBoxLayout(self.central_widget)
-        main_v.setContentsMargins(8, 8, 8, 8)
+        main_v.setContentsMargins(10, 10, 10, 10)
 
         # Header
         header_h = QHBoxLayout()
@@ -211,7 +179,7 @@ class BloodFangGUI(QMainWindow):
         header_h.addWidget(hacker_name_label, alignment=Qt.AlignLeft)
 
         title_label = QLabel("BLOODFANG")
-        title_label.setStyleSheet("font-size: 48px; font-weight: bold; color: #ff0000;")
+        title_label.setStyleSheet("font-size: 52px; font-weight: bold; color: #ff0000;")
         title_label.setAlignment(Qt.AlignCenter)
         header_h.addWidget(title_label, stretch=1)
 
@@ -233,43 +201,86 @@ class BloodFangGUI(QMainWindow):
         grid = QGridLayout()
         grid.setSpacing(8)
 
-        # Widget creation helper to reduce repetition
-        self.info_buttons = {}  # map module_name -> btn
-        def create_row(row_idx, url_attr, param_attr, run_callback, module_name, func_hint=None):
+        # We'll store references to fields for callbacks
+        self._fields = {}
+
+        def add_row(i, label_placeholder, param_placeholder, run_cb, module_name, func_hint=None, param_tip=None):
             url_field = QLineEdit()
-            url_field.setPlaceholderText(url_attr)
-            param_field = QLineEdit()
-            if param_attr:
-                param_field.setPlaceholderText(param_attr)
+            url_field.setPlaceholderText(label_placeholder)
+            if param_placeholder:
+                param_field = QLineEdit()
+                param_field.setPlaceholderText(param_placeholder)
+                if param_tip:
+                    param_field.setToolTip(param_tip)
+            else:
+                param_field = QLineEdit()
+                param_field.setPlaceholderText("—")
+                param_field.setEnabled(False)
 
             run_btn = QPushButton("Run")
-            run_btn.clicked.connect(run_callback)
+            run_btn.clicked.connect(run_cb)
             info_btn = QPushButton("i")
             info_btn.setFixedWidth(28)
-            info_btn.setToolTip("Show module info")
+            info_btn.setToolTip("Show module info (usage, params, samples)")
             info_btn.clicked.connect(lambda _, m=module_name, fh=func_hint: self.populate_preview(m, fh))
 
-            # store fields for access by callbacks
-            setattr(self, f"{module_name}_url_field", url_field)
-            setattr(self, f"{module_name}_param_field", param_field)
+            grid.addWidget(url_field, i, 0)
+            grid.addWidget(param_field, i, 1)
+            grid.addWidget(run_btn, i, 2)
+            grid.addWidget(info_btn, i, 3)
 
-            grid.addWidget(url_field, row_idx, 0)
-            if param_attr:
-                grid.addWidget(param_field, row_idx, 1)
-            else:
-                # empty placeholder so layout stays consistent
-                grid.addWidget(QWidget(), row_idx, 1)
-            grid.addWidget(run_btn, row_idx, 2)
-            grid.addWidget(info_btn, row_idx, 3)
-            self.info_buttons[module_name] = info_btn
+            # store
+            self._fields[module_name] = (url_field, param_field)
+            return url_field, param_field
 
-        # Define rows for modules (keeps original labels)
-        create_row(0, "XSS Target URL", "XSS Parameter", lambda: self._start_xss(), "fangxss", "scan_xss")
-        create_row(1, "SQLi Target URL", "SQLi Parameter", lambda: self._start_sqli(), "fangsql", "scan_sqli")
-        create_row(2, "LFI Target URL", "LFI Parameter", lambda: self._start_lfi(), "fanglfi", "scan_lfi")
-        create_row(3, "RCE Target URL", "RCE Parameter", lambda: self._start_rce(), "fangrce", "scan_rce")
-        create_row(4, "Brute Base URL", "Login Path", lambda: self._start_brute(), "fangbrute", "password_spray")
-        create_row(5, "API Base URL", None, lambda: self._start_api(), "fangapi", "discover_api_endpoints")
+        # Add rows with explicit param guidance (placeholders and tooltips)
+        add_row(0,
+                "XSS Target URL (e.g. https://target.com/search)",
+                "Parameter name (e.g. q, search, input)",
+                lambda: self._start_xss(),
+                "fangxss",
+                "scan_xss",
+                "Typical injectable param names: q, search, s, input — pass as URL::param")
+
+        add_row(1,
+                "SQLi Target URL (e.g. https://target.com/product)",
+                "Parameter name (e.g. id, product_id)",
+                lambda: self._start_sqli(),
+                "fangsql",
+                "scan_sqli",
+                "IDs and DB lookup params: id, product_id, sku — pass as URL::param")
+
+        add_row(2,
+                "LFI Target URL (e.g. https://target.com/view)",
+                "Parameter name (e.g. file, page, path)",
+                lambda: self._start_lfi(),
+                "fanglfi",
+                "scan_lfi",
+                "File include params: file, page, path — pass as URL::param (e.g. /etc/passwd)")
+
+        add_row(3,
+                "RCE Target URL (e.g. https://target.com/exec)",
+                "Parameter name (e.g. cmd, exec, command)",
+                lambda: self._start_rce(),
+                "fangrce",
+                "scan_rce",
+                "Command parameters: cmd, exec, command — pass as URL::param")
+
+        add_row(4,
+                "Brute Force Base URL (e.g. https://target.com)",
+                "Login path (e.g. /admin/login)",
+                lambda: self._start_brute(),
+                "fangbrute",
+                "password_spray",
+                "Login path and form endpoint, e.g. /admin/login or /auth/login")
+
+        add_row(5,
+                "API Base URL (e.g. https://target.com)",
+                None,
+                lambda: self._start_api(),
+                "fangapi",
+                "discover_api_endpoints",
+                "Base URL; scanner will probe common API prefixes like /api/, /v1/, /v2/, /graphql")
 
         left_layout.addLayout(grid)
 
@@ -277,7 +288,6 @@ class BloodFangGUI(QMainWindow):
         self.presets_layout = QVBoxLayout()
         self.presets_box.setLayout(self.presets_layout)
         left_layout.addWidget(self.presets_box)
-
         left_layout.addStretch(1)
 
         left_scroll = QScrollArea()
@@ -352,7 +362,7 @@ class BloodFangGUI(QMainWindow):
             except Exception:
                 pass
 
-        # Replace default append for consistent formatting
+        # Replace default append with thread-safe
         self.output_console.append = self._append_safe
 
     def resizeEvent(self, ev):
@@ -375,9 +385,7 @@ class BloodFangGUI(QMainWindow):
             self.worker.wait(2000)
         super().closeEvent(ev)
 
-    # --------------------
-    # Logging helpers
-    # --------------------
+    # ---- Logging helpers ----
     def _append_safe(self, text):
         self.output_console.moveCursor(QTextCursor.End)
         self.output_console.insertPlainText(text + "\n")
@@ -387,15 +395,12 @@ class BloodFangGUI(QMainWindow):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._append_safe(f"[{ts}] {text}")
 
-    # --------------------
-    # Preview population
-    # --------------------
+    # ---- Preview population with explicit params & payload samples ----
     def populate_preview(self, module_name: str, func_hint: str = None):
-        """Populate right preview with module docstring, signatures, and payload examples."""
         pieces = []
         pieces.append(f"<h2 style='color:#ff4d4d'>{module_name}</h2>")
 
-        # Try to import module and show __doc__ and function signature
+        # 1) Module docstring & introspection
         try:
             mod = None
             for root in CORE_PACKAGE_NAMES:
@@ -409,11 +414,12 @@ class BloodFangGUI(QMainWindow):
                     mod = importlib.import_module(module_name)
                 except Exception:
                     mod = None
+
             if mod:
                 doc = (mod.__doc__ or "").strip()
                 if doc:
                     pieces.append(f"<b>Description:</b><br><pre>{doc}</pre>")
-                # Show matching functions & signature
+
                 funcs = []
                 for name, obj in inspect.getmembers(mod, inspect.isfunction):
                     if name.startswith("_"):
@@ -424,22 +430,59 @@ class BloodFangGUI(QMainWindow):
                         sig = "(signature unavailable)"
                     funcs.append((name, sig))
                 if funcs:
-                    func_html = "<b>Available functions:</b><br><ul>"
+                    func_html = "<b>Functions:</b><br><ul>"
                     for n, s in funcs:
                         func_html += f"<li><code>{n}{s}</code></li>"
                     func_html += "</ul>"
                     pieces.append(func_html)
                 else:
-                    pieces.append("<b>Available functions:</b> None discovered.")
+                    pieces.append("<b>Functions:</b> None discovered.")
             else:
-                pieces.append("<b>Module:</b> Not importable for inspection.")
+                pieces.append("<b>Module:</b> Not importable for detailed introspection.")
         except Exception as e:
             pieces.append(f"<b>Preview error:</b> {e}")
 
-        # Payload examples based on filenames
+        # 2) Explicit parameter usage & examples
+        param_guidance = {
+            "fangxss": {
+                "usage": "Pass as: URL::param — e.g. https://target.com/search::q",
+                "desc": "Supply a target page URL and an injectable GET parameter name (q, search, input).",
+                "example_target": "https://target.com/search::q"
+            },
+            "fangsql": {
+                "usage": "Pass as: URL::param — e.g. https://target.com/product::id",
+                "desc": "Provide a resource URL and a numeric or string param often used in DB queries (id, product_id).",
+                "example_target": "https://target.com/product::id"
+            },
+            "fanglfi": {
+                "usage": "Pass as: URL::param — e.g. https://target.com/view::file",
+                "desc": "File include parameters (file, page, path). Try payloads like ../../../../etc/passwd.",
+                "example_target": "https://target.com/view::file"
+            },
+            "fangrce": {
+                "usage": "Pass as: URL::param — e.g. https://target.com/exec::cmd",
+                "desc": "Command-execution parameters (cmd, exec, command). Provide small test commands first (id, whoami).",
+                "example_target": "https://target.com/exec::cmd"
+            },
+            "fangbrute": {
+                "usage": "Pass as: BASE_URL::path — e.g. https://target.com::/admin/login",
+                "desc": "Base URL and the login path where credential form posts to.",
+                "example_target": "https://target.com::/admin/login"
+            },
+            "fangapi": {
+                "usage": "Pass as: BASE_URL — e.g. https://target.com",
+                "desc": "Provide the API base URL or domain; scanner will probe /api/, /v1/, /graphql etc.",
+                "example_target": "https://target.com"
+            }
+        }
+        guidance = param_guidance.get(module_name)
+        if guidance:
+            pieces.append(f"<b>Usage:</b><br><pre>{guidance['usage']}</pre>")
+            pieces.append(f"<b>What to pass:</b><br><pre>{guidance['desc']}</pre>")
+            pieces.append(f"<b>Example:</b><br><pre>{guidance['example_target']}</pre>")
+
+        # 3) Payload examples from core/payloads (first 8 lines)
         try:
-            payload_notes = []
-            # Map typical payload files to module
             mapping = {
                 "fangxss": ["xss_payloads.txt"],
                 "fangsql": ["sql_payloads.txt"],
@@ -449,43 +492,26 @@ class BloodFangGUI(QMainWindow):
                 "fangapi": ["api_endpoints.txt"]
             }
             files = mapping.get(module_name, [])
-            if files:
-                for fn in files:
-                    p = PAYLOADS_DIR / fn
-                    entries = read_payload_file(p)
-                    if entries:
-                        sample = entries[:8]
-                        payload_notes.append(f"<b>{fn} (sample):</b><br><pre>{chr(10).join(sample)}</pre>")
-            if payload_notes:
-                pieces.append("<b>Payload examples:</b>")
-                pieces.extend(payload_notes)
-            else:
-                pieces.append("<b>Payload examples:</b> No payload file found or file empty.")
-        except Exception as e:
-            pieces.append(f"<b>Payload load error:</b> {e}")
-
-        # Parameter usage hints
-        try:
-            hints = {
-                "fangxss": "Pass target as: URL::param  e.g. http://target.com/search::q",
-                "fangsql": "Pass target as: URL::param  e.g. http://target.com/item::id",
-                "fanglfi": "Pass target as: URL::param  e.g. http://target.com/view::file",
-                "fangrce": "Pass target as: URL::param  e.g. http://target.com/exec::cmd",
-                "fangbrute": "Pass target as: BASE_URL::path  e.g. http://target.com::/admin/login",
-                "fangapi": "Pass target as: BASE_URL  e.g. http://target.com"
-            }
-            if module_name in hints:
-                pieces.append(f"<b>Usage hint:</b><br><pre>{hints[module_name]}</pre>")
+            for fn in files:
+                p = PAYLOADS_DIR / fn
+                entries = read_payload_file(p)
+                if entries:
+                    sample = entries[:8]
+                    pieces.append(f"<b>{fn} (sample payloads):</b><br><pre>{chr(10).join(sample)}</pre>")
+                else:
+                    # Skip empty files quietly
+                    pass
         except Exception:
             pass
 
-        # Practical quick tips
+        # 4) Quick tips
         tips = """
         <b>Quick tips:</b>
         <ul>
-          <li>Use small payload batches to avoid noisy logs during testing.</li>
-          <li>Respect target rules of engagement and only scan authorized targets.</li>
-          <li>Use the 'Stop' button to cancel long-running scans; modules that spawn blocking subprocesses may take longer to stop.</li>
+          <li>Start with a single target and a single param to validate behavior before batch testing.</li>
+          <li>For XSS/SQLi, try harmless probes (e.g., <code>&lt;script&gt;alert(1)&lt;/script&gt;</code>) in staging.</li>
+          <li>Respect rules of engagement. Only run against authorized targets.</li>
+          <li>Use the Stop button to cancel; modules that spawn blocking subprocesses may take a bit longer to stop.</li>
         </ul>
         """
         pieces.append(tips)
@@ -493,9 +519,7 @@ class BloodFangGUI(QMainWindow):
         html = "<hr>".join(pieces)
         self.preview_widget.setHtml(html)
 
-    # --------------------
-    # Worker lifecycle
-    # --------------------
+    # ---- Worker lifecycle ----
     def _start_worker(self, module_name, func_hint, target):
         if self.worker and self.worker.isRunning():
             self._log_to_console("[WARN] A worker is already running. Stop it first.")
@@ -507,7 +531,7 @@ class BloodFangGUI(QMainWindow):
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.stop_btn.setEnabled(True)
         self._log_to_console(f"[INFO] Launching {module_name} for {target}")
-        # populate preview automatically on start
+        # show guidance in preview
         self.populate_preview(module_name, func_hint)
         self.worker.start()
 
@@ -522,12 +546,11 @@ class BloodFangGUI(QMainWindow):
         self._log_to_console("[INFO] Worker finished.")
         self.stop_btn.setEnabled(False)
 
-    # --------------------
-    # Module-specific starts (wrap old run_* semantics)
-    # --------------------
+    # ---- Module-specific starts (reads inputs and composes standardized target strings) ----
     def _start_xss(self):
-        url = getattr(self, "fangxss_url_field").text().strip()
-        param = getattr(self, "fangxss_param_field").text().strip()
+        url_field, param_field = self._fields.get("fangxss", (None, None))
+        url = url_field.text().strip() if url_field else ""
+        param = param_field.text().strip() if param_field else ""
         if not url:
             self._log_to_console("[!] XSS Target URL is empty.")
             return
@@ -537,8 +560,9 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_sqli(self):
-        url = getattr(self, "fangsql_url_field").text().strip()
-        param = getattr(self, "fangsql_param_field").text().strip()
+        url_field, param_field = self._fields.get("fangsql", (None, None))
+        url = url_field.text().strip() if url_field else ""
+        param = param_field.text().strip() if param_field else ""
         if not url:
             self._log_to_console("[!] SQLi Target URL is empty.")
             return
@@ -548,8 +572,9 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_lfi(self):
-        url = getattr(self, "fanglfi_url_field").text().strip()
-        param = getattr(self, "fanglfi_param_field").text().strip()
+        url_field, param_field = self._fields.get("fanglfi", (None, None))
+        url = url_field.text().strip() if url_field else ""
+        param = param_field.text().strip() if param_field else ""
         if not url:
             self._log_to_console("[!] LFI Target URL is empty.")
             return
@@ -559,8 +584,9 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_rce(self):
-        url = getattr(self, "fangrce_url_field").text().strip()
-        param = getattr(self, "fangrce_param_field").text().strip()
+        url_field, param_field = self._fields.get("fangrce", (None, None))
+        url = url_field.text().strip() if url_field else ""
+        param = param_field.text().strip() if param_field else ""
         if not url:
             self._log_to_console("[!] RCE Target URL is empty.")
             return
@@ -570,10 +596,11 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_brute(self):
-        url = getattr(self, "fangbrute_url_field").text().strip()
-        path = getattr(self, "fangbrute_param_field").text().strip()
+        url_field, path_field = self._fields.get("fangbrute", (None, None))
+        url = url_field.text().strip() if url_field else ""
+        path = path_field.text().strip() if path_field else ""
         if not url or not path:
-            self._log_to_console("[!] Brute Force URL or path is empty.")
+            self._log_to_console("[!] Brute Force Base URL or path is empty.")
             return
         module_name = "fangbrute"
         func_hint = "password_spray"
@@ -581,7 +608,8 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_api(self):
-        url = getattr(self, "fangapi_url_field").text().strip()
+        url_field, _ = self._fields.get("fangapi", (None, None))
+        url = url_field.text().strip() if url_field else ""
         if not url:
             self._log_to_console("[!] API Base URL is empty.")
             return
@@ -590,9 +618,7 @@ class BloodFangGUI(QMainWindow):
         target = url
         self._start_worker(module_name, func_hint, target)
 
-    # --------------------
-    # Save log
-    # --------------------
+    # ---- Save log ----
     def _save_log(self):
         suggested = f"bloodfang_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         path, _ = QFileDialog.getSaveFileName(self, "Save log as...", suggested, "Text Files (*.txt);;All Files (*)")
@@ -604,9 +630,7 @@ class BloodFangGUI(QMainWindow):
             except Exception as e:
                 self._log_to_console(f"[ERROR] Could not save log: {e}")
 
-# --------------------
-# Run the GUI
-# --------------------
+# ---- Run the GUI ----
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     gui = BloodFangGUI()
