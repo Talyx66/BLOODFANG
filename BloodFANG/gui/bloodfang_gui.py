@@ -3,6 +3,7 @@ import sys
 import os
 import traceback
 import importlib
+import inspect
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -12,19 +13,19 @@ from PyQt5.QtWidgets import (
     QPushButton, QTextEdit, QGridLayout, QHBoxLayout, QSplitter, QScrollArea,
     QFileDialog, QGroupBox
 )
-from PyQt5.QtGui import QMovie, QColor, QFont, QIcon, QKeySequence, QTextCursor
+from PyQt5.QtGui import QMovie, QColor, QFont, QTextCursor
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
-# Make sure core modules are importable (repo layout: BloodFANG/)
+# Project paths and import roots
 HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = HERE.parent  # BloodFANG/
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# If your modules live as `core.fangxss` relative to this gui/ folder, this will work.
+CORE_DIR = PROJECT_ROOT / "core"  # fallback if modules import as core.*
 CORE_PACKAGE_NAMES = ["core", "BloodFANG.core"]  # try both import roots
-
+PAYLOADS_DIR = PROJECT_ROOT / "core" / "payloads"
 
 def discover_core_module_names(core_dir):
     mods = []
@@ -36,6 +37,13 @@ def discover_core_module_names(core_dir):
         pass
     return mods
 
+def read_payload_file(fname: Path):
+    try:
+        if fname.exists():
+            return [line.strip() for line in fname.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
+    except Exception:
+        pass
+    return []
 
 class WorkerThread(QThread):
     log_signal = pyqtSignal(str)
@@ -45,7 +53,7 @@ class WorkerThread(QThread):
     def __init__(self, module_name, func_name_hint, target):
         super().__init__()
         self.module_name = module_name
-        self.func_hint = func_name_hint  # e.g., 'scan_xss' or None
+        self.func_hint = func_name_hint
         self.target = target
         self._stop_event = threading.Event()
 
@@ -60,7 +68,6 @@ class WorkerThread(QThread):
         self.emit_log(message)
 
     def _import_module(self, modname):
-        # Try multiple package roots
         for root in CORE_PACKAGE_NAMES:
             try:
                 full = f"{root}.{modname}"
@@ -68,7 +75,6 @@ class WorkerThread(QThread):
                 return mod
             except Exception:
                 continue
-        # Last-ditch: try direct import
         try:
             return importlib.import_module(modname)
         except Exception as e:
@@ -77,7 +83,6 @@ class WorkerThread(QThread):
     def run(self):
         try:
             self.emit_log(f"Worker starting: module='{self.module_name}' target='{self.target}'")
-            module = None
             try:
                 module = self._import_module(self.module_name)
             except Exception as e:
@@ -86,15 +91,11 @@ class WorkerThread(QThread):
                 self.finished_signal.emit()
                 return
 
-            # Determine callable strategy
             candidates = []
-
-            # If a func hint exists (like scan_xss) prefer that
             if self.func_hint:
-                candidates.append((self.func_hint, True))   # try with stop_event
-                candidates.append((self.func_hint, False))  # try without stop_event
+                candidates.append((self.func_hint, True))
+                candidates.append((self.func_hint, False))
 
-            # Common entrypoints
             candidates += [
                 ("run", True),
                 ("run", False),
@@ -112,7 +113,6 @@ class WorkerThread(QThread):
                             self.emit_log(f"Calling {self.module_name}.{name}(target, emit, stop_event)")
                             func(self.target, self._module_emit, self._stop_event)
                         else:
-                            # try (target, emit) else (target)
                             try:
                                 self.emit_log(f"Calling {self.module_name}.{name}(target, emit)")
                                 func(self.target, self._module_emit)
@@ -127,7 +127,7 @@ class WorkerThread(QThread):
                         self.emit_log(tb, level="DEBUG")
 
             if not invoked:
-                # Try function name patterns inside module, like scan_xss, scan_sqli, etc.
+                # last attempt: try function hint without package
                 if self.func_hint:
                     alt = getattr(module, self.func_hint, None)
                     if callable(alt):
@@ -155,7 +155,6 @@ class BloodFangGUI(QMainWindow):
         self.setWindowTitle("BLOODFANG - Offensive Security")
         self.settings = QSettings("Talyx", "BLOODFANG")
 
-        # Restore geometry if present
         geom = self.settings.value("geometry")
         if geom:
             try:
@@ -165,7 +164,6 @@ class BloodFangGUI(QMainWindow):
 
         self.setMinimumSize(900, 600)
 
-        # Basic stylesheet (kept from your original)
         self.setStyleSheet("""
             QMainWindow {
                 background-color: black;
@@ -200,13 +198,13 @@ class BloodFangGUI(QMainWindow):
             }
         """)
 
-        # Main widget + layout
+        # Main layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         main_v = QVBoxLayout(self.central_widget)
         main_v.setContentsMargins(8, 8, 8, 8)
 
-        # Header: hacker name, title, github
+        # Header
         header_h = QHBoxLayout()
         hacker_name_label = QLabel("Talyx")
         hacker_name_label.setStyleSheet("font-size: 18px; color: #ff4d4d; font-weight: bold;")
@@ -223,11 +221,11 @@ class BloodFangGUI(QMainWindow):
 
         main_v.addLayout(header_h)
 
-        # Top area: grid controls on the left, placeholder on right (splitter between)
+        # Splitter: left controls / right preview
         self.splitter = QSplitter(Qt.Horizontal)
         main_v.addWidget(self.splitter, 10)
 
-        # Left controls (in a scroll area to avoid overflow)
+        # Left controls (scrollable)
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(6, 6, 6, 6)
@@ -235,56 +233,46 @@ class BloodFangGUI(QMainWindow):
         grid = QGridLayout()
         grid.setSpacing(8)
 
-        # XSS
-        self.xss_url = QLineEdit()
-        self.xss_url.setPlaceholderText("XSS Target URL")
-        self.xss_param = QLineEdit()
-        self.xss_param.setPlaceholderText("XSS Parameter")
-        xss_btn = QPushButton("Run XSS")
-        xss_btn.clicked.connect(self._start_xss)
+        # Widget creation helper to reduce repetition
+        self.info_buttons = {}  # map module_name -> btn
+        def create_row(row_idx, url_attr, param_attr, run_callback, module_name, func_hint=None):
+            url_field = QLineEdit()
+            url_field.setPlaceholderText(url_attr)
+            param_field = QLineEdit()
+            if param_attr:
+                param_field.setPlaceholderText(param_attr)
 
-        # SQLi
-        self.sqli_url = QLineEdit(); self.sqli_url.setPlaceholderText("SQLi Target URL")
-        self.sqli_param = QLineEdit(); self.sqli_param.setPlaceholderText("SQLi Parameter")
-        sqli_btn = QPushButton("Run SQLi"); sqli_btn.clicked.connect(self._start_sqli)
+            run_btn = QPushButton("Run")
+            run_btn.clicked.connect(run_callback)
+            info_btn = QPushButton("i")
+            info_btn.setFixedWidth(28)
+            info_btn.setToolTip("Show module info")
+            info_btn.clicked.connect(lambda _, m=module_name, fh=func_hint: self.populate_preview(m, fh))
 
-        # LFI
-        self.lfi_url = QLineEdit(); self.lfi_url.setPlaceholderText("LFI Target URL")
-        self.lfi_param = QLineEdit(); self.lfi_param.setPlaceholderText("LFI Parameter")
-        lfi_btn = QPushButton("Run LFI"); lfi_btn.clicked.connect(self._start_lfi)
+            # store fields for access by callbacks
+            setattr(self, f"{module_name}_url_field", url_field)
+            setattr(self, f"{module_name}_param_field", param_field)
 
-        # RCE
-        self.rce_url = QLineEdit(); self.rce_url.setPlaceholderText("RCE Target URL")
-        self.rce_param = QLineEdit(); self.rce_param.setPlaceholderText("RCE Parameter")
-        rce_btn = QPushButton("Run RCE"); rce_btn.clicked.connect(self._start_rce)
+            grid.addWidget(url_field, row_idx, 0)
+            if param_attr:
+                grid.addWidget(param_field, row_idx, 1)
+            else:
+                # empty placeholder so layout stays consistent
+                grid.addWidget(QWidget(), row_idx, 1)
+            grid.addWidget(run_btn, row_idx, 2)
+            grid.addWidget(info_btn, row_idx, 3)
+            self.info_buttons[module_name] = info_btn
 
-        # Brute Force
-        self.brute_url = QLineEdit(); self.brute_url.setPlaceholderText("Brute Base URL")
-        self.brute_path = QLineEdit(); self.brute_path.setPlaceholderText("Login Path")
-        brute_btn = QPushButton("Run Brute Force"); brute_btn.clicked.connect(self._start_brute)
-
-        # API Discovery
-        self.api_url = QLineEdit(); self.api_url.setPlaceholderText("API Base URL")
-        api_btn = QPushButton("Discover API"); api_btn.clicked.connect(self._start_api)
-
-        # Placement in grid
-        elements = [
-            (self.xss_url, self.xss_param, xss_btn),
-            (self.sqli_url, self.sqli_param, sqli_btn),
-            (self.lfi_url, self.lfi_param, lfi_btn),
-            (self.rce_url, self.rce_param, rce_btn),
-            (self.brute_url, self.brute_path, brute_btn),
-            (self.api_url, None, api_btn)
-        ]
-        for i, (url, param, btn) in enumerate(elements):
-            grid.addWidget(url, i, 0)
-            if param:
-                grid.addWidget(param, i, 1)
-            grid.addWidget(btn, i, 2)
+        # Define rows for modules (keeps original labels)
+        create_row(0, "XSS Target URL", "XSS Parameter", lambda: self._start_xss(), "fangxss", "scan_xss")
+        create_row(1, "SQLi Target URL", "SQLi Parameter", lambda: self._start_sqli(), "fangsql", "scan_sqli")
+        create_row(2, "LFI Target URL", "LFI Parameter", lambda: self._start_lfi(), "fanglfi", "scan_lfi")
+        create_row(3, "RCE Target URL", "RCE Parameter", lambda: self._start_rce(), "fangrce", "scan_rce")
+        create_row(4, "Brute Base URL", "Login Path", lambda: self._start_brute(), "fangbrute", "password_spray")
+        create_row(5, "API Base URL", None, lambda: self._start_api(), "fangapi", "discover_api_endpoints")
 
         left_layout.addLayout(grid)
 
-        # Presets / Quick Actions box (kept for compatibility)
         self.presets_box = QGroupBox("Presets / Quick Actions")
         self.presets_layout = QVBoxLayout()
         self.presets_box.setLayout(self.presets_layout)
@@ -298,15 +286,14 @@ class BloodFangGUI(QMainWindow):
 
         self.splitter.addWidget(left_scroll)
 
-        # Right placeholder: can show module info; but primarily used to allocate space
-        right_widget = QWidget()
-        right_layout = QVBoxLayout(right_widget)
-        right_label = QLabel("Module Preview / Details")
-        right_label.setAlignment(Qt.AlignTop)
-        right_layout.addWidget(right_label)
-        self.splitter.addWidget(right_widget)
+        # Right preview widget (rich text)
+        self.preview_widget = QTextEdit()
+        self.preview_widget.setReadOnly(True)
+        self.preview_widget.setLineWrapMode(QTextEdit.WidgetWidth)
+        self.preview_widget.setFont(QFont("Consolas", 11))
+        self.splitter.addWidget(self.preview_widget)
 
-        # Bottom: output console takes big area — place under splitter but large
+        # Bottom: output console (large)
         self.output_console = QTextEdit()
         self.output_console.setReadOnly(True)
         font = QFont("Consolas", 11)
@@ -314,7 +301,7 @@ class BloodFangGUI(QMainWindow):
         self.output_console.setLineWrapMode(QTextEdit.NoWrap)
         main_v.addWidget(self.output_console, 6)
 
-        # Save/clear/stop controls under console
+        # Controls under console
         controls_h = QHBoxLayout()
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setEnabled(False)
@@ -330,11 +317,11 @@ class BloodFangGUI(QMainWindow):
         controls_h.addStretch(1)
         main_v.addLayout(controls_h)
 
-        # Background GIF
+        # GIF background
         gif_path = os.path.join(os.path.dirname(__file__), "assets", "Talyxlogo6.gif")
         self.bg_label = QLabel(self)
         self.bg_label.setScaledContents(True)
-        self.bg_label.lower()  # keep behind everything
+        self.bg_label.lower()
         if os.path.exists(gif_path):
             try:
                 self.bg_movie = QMovie(gif_path)
@@ -348,7 +335,6 @@ class BloodFangGUI(QMainWindow):
         else:
             self._log_to_console(f"[WARN] GIF not found: {gif_path}")
 
-        # Red glow effect (visual)
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(40)
         shadow.setColor(QColor(255, 0, 2, 180))
@@ -359,7 +345,6 @@ class BloodFangGUI(QMainWindow):
         # Thread tracking
         self.worker = None
 
-        # Restore splitter state
         splitter_state = self.settings.value("splitterState")
         if splitter_state:
             try:
@@ -367,12 +352,10 @@ class BloodFangGUI(QMainWindow):
             except Exception:
                 pass
 
-        # Shortcuts
-        self.output_console.setContextMenuPolicy(Qt.DefaultContextMenu)
-        self.output_console.append = self._append_safe  # override append to keep format consistent
+        # Replace default append for consistent formatting
+        self.output_console.append = self._append_safe
 
     def resizeEvent(self, ev):
-        # keep gif spanning background
         try:
             self.bg_label.resize(self.size())
         except Exception:
@@ -380,14 +363,12 @@ class BloodFangGUI(QMainWindow):
         super().resizeEvent(ev)
 
     def closeEvent(self, ev):
-        # persist geometry and splitter state
         try:
             self.settings.setValue("geometry", self.saveGeometry())
             self.settings.setValue("splitterState", self.splitter.saveState())
         except Exception:
             pass
 
-        # try to stop running worker
         if self.worker and isinstance(self.worker, WorkerThread) and self.worker.isRunning():
             self._log_to_console("[INFO] Stopping worker (closing)...")
             self.worker.stop()
@@ -398,7 +379,6 @@ class BloodFangGUI(QMainWindow):
     # Logging helpers
     # --------------------
     def _append_safe(self, text):
-        # thread-safe append; if called from main thread it's fine
         self.output_console.moveCursor(QTextCursor.End)
         self.output_console.insertPlainText(text + "\n")
         self.output_console.moveCursor(QTextCursor.End)
@@ -406,6 +386,112 @@ class BloodFangGUI(QMainWindow):
     def _log_to_console(self, text):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._append_safe(f"[{ts}] {text}")
+
+    # --------------------
+    # Preview population
+    # --------------------
+    def populate_preview(self, module_name: str, func_hint: str = None):
+        """Populate right preview with module docstring, signatures, and payload examples."""
+        pieces = []
+        pieces.append(f"<h2 style='color:#ff4d4d'>{module_name}</h2>")
+
+        # Try to import module and show __doc__ and function signature
+        try:
+            mod = None
+            for root in CORE_PACKAGE_NAMES:
+                try:
+                    mod = importlib.import_module(f"{root}.{module_name}")
+                    break
+                except Exception:
+                    continue
+            if not mod:
+                try:
+                    mod = importlib.import_module(module_name)
+                except Exception:
+                    mod = None
+            if mod:
+                doc = (mod.__doc__ or "").strip()
+                if doc:
+                    pieces.append(f"<b>Description:</b><br><pre>{doc}</pre>")
+                # Show matching functions & signature
+                funcs = []
+                for name, obj in inspect.getmembers(mod, inspect.isfunction):
+                    if name.startswith("_"):
+                        continue
+                    try:
+                        sig = str(inspect.signature(obj))
+                    except Exception:
+                        sig = "(signature unavailable)"
+                    funcs.append((name, sig))
+                if funcs:
+                    func_html = "<b>Available functions:</b><br><ul>"
+                    for n, s in funcs:
+                        func_html += f"<li><code>{n}{s}</code></li>"
+                    func_html += "</ul>"
+                    pieces.append(func_html)
+                else:
+                    pieces.append("<b>Available functions:</b> None discovered.")
+            else:
+                pieces.append("<b>Module:</b> Not importable for inspection.")
+        except Exception as e:
+            pieces.append(f"<b>Preview error:</b> {e}")
+
+        # Payload examples based on filenames
+        try:
+            payload_notes = []
+            # Map typical payload files to module
+            mapping = {
+                "fangxss": ["xss_payloads.txt"],
+                "fangsql": ["sql_payloads.txt"],
+                "fanglfi": ["lfi_payloads.txt"],
+                "fangrce": ["rce_payloads.txt"],
+                "fangbrute": ["brute_usernames.txt", "brute_passwords.txt"],
+                "fangapi": ["api_endpoints.txt"]
+            }
+            files = mapping.get(module_name, [])
+            if files:
+                for fn in files:
+                    p = PAYLOADS_DIR / fn
+                    entries = read_payload_file(p)
+                    if entries:
+                        sample = entries[:8]
+                        payload_notes.append(f"<b>{fn} (sample):</b><br><pre>{chr(10).join(sample)}</pre>")
+            if payload_notes:
+                pieces.append("<b>Payload examples:</b>")
+                pieces.extend(payload_notes)
+            else:
+                pieces.append("<b>Payload examples:</b> No payload file found or file empty.")
+        except Exception as e:
+            pieces.append(f"<b>Payload load error:</b> {e}")
+
+        # Parameter usage hints
+        try:
+            hints = {
+                "fangxss": "Pass target as: URL::param  e.g. http://target.com/search::q",
+                "fangsql": "Pass target as: URL::param  e.g. http://target.com/item::id",
+                "fanglfi": "Pass target as: URL::param  e.g. http://target.com/view::file",
+                "fangrce": "Pass target as: URL::param  e.g. http://target.com/exec::cmd",
+                "fangbrute": "Pass target as: BASE_URL::path  e.g. http://target.com::/admin/login",
+                "fangapi": "Pass target as: BASE_URL  e.g. http://target.com"
+            }
+            if module_name in hints:
+                pieces.append(f"<b>Usage hint:</b><br><pre>{hints[module_name]}</pre>")
+        except Exception:
+            pass
+
+        # Practical quick tips
+        tips = """
+        <b>Quick tips:</b>
+        <ul>
+          <li>Use small payload batches to avoid noisy logs during testing.</li>
+          <li>Respect target rules of engagement and only scan authorized targets.</li>
+          <li>Use the 'Stop' button to cancel long-running scans; modules that spawn blocking subprocesses may take longer to stop.</li>
+        </ul>
+        """
+        pieces.append(tips)
+
+        html = "<hr>".join(pieces)
+        self.preview_widget.setHtml(html)
 
     # --------------------
     # Worker lifecycle
@@ -421,40 +507,38 @@ class BloodFangGUI(QMainWindow):
         self.worker.finished_signal.connect(self._on_worker_finished)
         self.stop_btn.setEnabled(True)
         self._log_to_console(f"[INFO] Launching {module_name} for {target}")
+        # populate preview automatically on start
+        self.populate_preview(module_name, func_hint)
         self.worker.start()
 
     def _stop_worker(self):
         if self.worker and self.worker.isRunning():
             self._log_to_console("[INFO] Stop requested.")
             self.worker.stop()
-            # UI will be reset in finished handler
         else:
             self._log_to_console("[INFO] No worker to stop.")
 
     def _on_worker_finished(self):
         self._log_to_console("[INFO] Worker finished.")
         self.stop_btn.setEnabled(False)
-        # re-enable any UI controls if you disabled them
 
     # --------------------
     # Module-specific starts (wrap old run_* semantics)
     # --------------------
     def _start_xss(self):
-        url = self.xss_url.text().strip()
-        param = self.xss_param.text().strip()
+        url = getattr(self, "fangxss_url_field").text().strip()
+        param = getattr(self, "fangxss_param_field").text().strip()
         if not url:
             self._log_to_console("[!] XSS Target URL is empty.")
             return
-        # prefer a module name that maps to your core file (fangxss)
         module_name = "fangxss"
-        # pass a hint like 'scan_xss' to find a specific function
         func_hint = "scan_xss"
         target = f"{url}::{param}"
         self._start_worker(module_name, func_hint, target)
 
     def _start_sqli(self):
-        url = self.sqli_url.text().strip()
-        param = self.sqli_param.text().strip()
+        url = getattr(self, "fangsql_url_field").text().strip()
+        param = getattr(self, "fangsql_param_field").text().strip()
         if not url:
             self._log_to_console("[!] SQLi Target URL is empty.")
             return
@@ -464,8 +548,8 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_lfi(self):
-        url = self.lfi_url.text().strip()
-        param = self.lfi_param.text().strip()
+        url = getattr(self, "fanglfi_url_field").text().strip()
+        param = getattr(self, "fanglfi_param_field").text().strip()
         if not url:
             self._log_to_console("[!] LFI Target URL is empty.")
             return
@@ -475,8 +559,8 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_rce(self):
-        url = self.rce_url.text().strip()
-        param = self.rce_param.text().strip()
+        url = getattr(self, "fangrce_url_field").text().strip()
+        param = getattr(self, "fangrce_param_field").text().strip()
         if not url:
             self._log_to_console("[!] RCE Target URL is empty.")
             return
@@ -486,8 +570,8 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_brute(self):
-        url = self.brute_url.text().strip()
-        path = self.brute_path.text().strip()
+        url = getattr(self, "fangbrute_url_field").text().strip()
+        path = getattr(self, "fangbrute_param_field").text().strip()
         if not url or not path:
             self._log_to_console("[!] Brute Force URL or path is empty.")
             return
@@ -497,7 +581,7 @@ class BloodFangGUI(QMainWindow):
         self._start_worker(module_name, func_hint, target)
 
     def _start_api(self):
-        url = self.api_url.text().strip()
+        url = getattr(self, "fangapi_url_field").text().strip()
         if not url:
             self._log_to_console("[!] API Base URL is empty.")
             return
@@ -527,9 +611,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     gui = BloodFangGUI()
     gui.show()
-    # Ensure we call the PyQt5 exec_ naming
     try:
         sys.exit(app.exec_())
     except Exception:
-        # Some environments may use exec; fallback:
         sys.exit(app.exec())
