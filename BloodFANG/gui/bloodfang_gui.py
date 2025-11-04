@@ -1,9 +1,11 @@
 # BloodFANG/gui/bloodfang_gui.py
 # Final drop-in replacement (PyQt5)
+# - auto path fix for BLOODFANG imports (fixes "no module named BloodFANG")
 # - adaptive layout, threaded workers, persistent geometry
 # - module preview with explicit params and real payload samples
 # - special-case fangbrute handling (uses brute_usernames/passwords if present)
-# - imports from BloodFANG.core (your repo layout)
+# - integrates adapters.safe_* if present for deterministic safe scans
+# - uses PyQt5 app.exec_() at the bottom
 
 import sys
 import os
@@ -17,26 +19,50 @@ from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QLineEdit,
     QPushButton, QTextEdit, QGridLayout, QHBoxLayout, QSplitter, QScrollArea,
-    QFileDialog, QGroupBox
+    QFileDialog, QGroupBox, QGraphicsDropShadowEffect
 )
 from PyQt5.QtGui import QMovie, QColor, QFont, QTextCursor
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings
-from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 
-# --- Paths & config ---
-HERE = Path(__file__).resolve().parent
-# Project root is one level up; your code lives in BLOODFANG/BloodFANG/
-PROJECT_ROOT = HERE.parent
-# core package root used for imports
+# -------------------------
+# Path configuration fix
+# -------------------------
+HERE = Path(__file__).resolve().parent            # .../BLOODFANG/BloodFANG/gui
+# PROJECT_ROOT should point to the repo root that contains the BloodFANG package.
+# Given layout: REPO_ROOT/BLOODFANG/BloodFANG/gui -> we want REPO_ROOT/BLOODFANG
+# That is two levels up from this file (parents[1] -> BloodFANG inner package, parents[2] -> repo root?).
+# To be robust: if this file is at BLOODFANG/BloodFANG/gui, then HERE.parents[1] == BLOODFANG (inner).
+# We want the directory that contains the inner 'BloodFANG' package. That's HERE.parents[1].parent
+# Simpler: climb until we find a directory named "BloodFANG" that contains a "core" folder.
+def _find_repo_root():
+    cur = HERE
+    for _ in range(5):
+        candidate = cur.parent
+        # check for /<candidate>/BloodFANG/core
+        test = candidate / "BloodFANG" / "core"
+        if test.exists():
+            return candidate
+        cur = cur.parent
+    # fallback: two levels up
+    return HERE.parents[1]
+
+PROJECT_ROOT = _find_repo_root()
 CORE_PACKAGE = "BloodFANG.core"
-# payloads directory (BLOODFANG/BloodFANG/core/payloads)
 PAYLOADS_DIR = PROJECT_ROOT / "BloodFANG" / "core" / "payloads"
 
-# Ensure project root is on sys.path so imports like BloodFANG.core.fangxss work.
+# ensure project root on path so Python can import BloodFANG
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# try loading adapters for safe scanning (optional)
+try:
+    from BloodFANG.core import adapters  # type: ignore
+except Exception:
+    adapters = None
 
+# -------------------------
+# Utility: read payloads
+# -------------------------
 def read_payload_file(fname: Path):
     try:
         if fname.exists():
@@ -46,8 +72,9 @@ def read_payload_file(fname: Path):
         pass
     return []
 
-
-# --- Worker thread ---
+# -------------------------
+# WorkerThread
+# -------------------------
 class WorkerThread(QThread):
     log_signal = pyqtSignal(str)
     finished_signal = pyqtSignal()
@@ -68,6 +95,7 @@ class WorkerThread(QThread):
         self.log_signal.emit(f"[{ts}] [{level}] {text}")
 
     def _module_emit(self, message: str):
+        # expose module logs to GUI
         self.emit_log(message)
 
     def _import_module(self, modname: str):
@@ -75,7 +103,6 @@ class WorkerThread(QThread):
         try:
             return importlib.import_module(full)
         except Exception as e:
-            # Try direct import as fallback
             try:
                 return importlib.import_module(modname)
             except Exception:
@@ -84,6 +111,32 @@ class WorkerThread(QThread):
     def run(self):
         try:
             self.emit_log(f"Worker starting: module='{self.module_name}' target='{self.target}'")
+
+            # Prefer safe adapter wrappers if available
+            safe_fn_name = f"safe_{self.module_name.replace('fang', '')}"
+            if adapters and hasattr(adapters, safe_fn_name):
+                fn = getattr(adapters, safe_fn_name)
+                self.emit_log(f"[INFO] Using adapters.{safe_fn_name} for controlled scanning.")
+                try:
+                    # handle fangbrute signature differently
+                    if self.module_name == "fangbrute":
+                        base, path = (self.target.split("::", 1) + [""])[:2]
+                        fn(base, path, self._module_emit, self._stop_event)
+                    elif self.module_name == "fangapi":
+                        fn(self.target, self._module_emit, self._stop_event)
+                    else:
+                        url, param = (self.target.split("::", 1) + [""])[:2]
+                        fn(url, param, self._module_emit, self._stop_event)
+                    self.emit_log(f"[INFO] Safe adapter finished for {self.module_name}")
+                    self.finished_signal.emit()
+                    return
+                except Exception as e:
+                    self.emit_log(f"[ERROR] Adapter {safe_fn_name} raised: {e}", level="ERROR")
+                    tb = traceback.format_exc()
+                    self.emit_log(tb, level="DEBUG")
+                    # fallthrough to original module attempt
+
+            # Import target module from BloodFANG.core or fallback
             try:
                 module = self._import_module(self.module_name)
             except Exception as e:
@@ -94,17 +147,14 @@ class WorkerThread(QThread):
 
             invoked = False
 
-            # Special-case: fangbrute wants usernames & passwords lists
+            # Special-case brute if module implements password_spray
             if self.module_name == "fangbrute":
-                # Expect target format: BASE_URL::path
                 try:
                     base, path = (self.target.split("::", 1) + [""])[:2]
                 except Exception:
                     base, path = self.target, ""
-                # load username/password lists if present
                 usernames = read_payload_file(PAYLOADS_DIR / "brute_usernames.txt") or ["admin", "user", "test"]
                 passwords = read_payload_file(PAYLOADS_DIR / "brute_passwords.txt") or ["123456", "password", "admin123"]
-                # Try to call password_spray(base, usernames, passwords, path, logger)
                 func = getattr(module, "password_spray", None)
                 if callable(func):
                     try:
@@ -115,28 +165,20 @@ class WorkerThread(QThread):
                         self.emit_log(f"Error in password_spray: {e}", level="ERROR")
                         tb = traceback.format_exc()
                         self.emit_log(tb, level="DEBUG")
-                # fallback to generic runner below if not invoked
 
-            # Generic candidate call patterns (try to be flexible)
+            # Prepare candidate names & parse target
             candidates = []
-
-            # If func_hint provided, prefer it
             if self.func_hint:
-                candidates.append((self.func_hint, True))   # (name, with_stop)
+                candidates.append((self.func_hint, True))
                 candidates.append((self.func_hint, False))
-
-            # Also try common names and signatures
             candidates += [
                 ("scan", True),
                 ("scan", False),
                 ("run", True),
                 ("run", False),
-                ("main", False)
+                ("main", False),
             ]
 
-            # For the modules that are expected to have (url, param, logger)
-            # we'll try calling them directly where sensible.
-            # Parse target into url and param where possible: format URL::param
             url = self.target
             param = ""
             if "::" in self.target:
@@ -149,93 +191,82 @@ class WorkerThread(QThread):
                 if not callable(func):
                     continue
                 try:
-                    # Prefer the signature best matching common module style
-                    # 1) (url, param, logger)
-                    # 2) (target, emit, stop_event)
-                    # 3) (target, emit)
-                    # 4) (target)
-                    sig_ok = False
-                    try:
-                        # try url,param,logger
-                        if param != "":
+                    # Try most common signatures safely
+                    if param:
+                        # try url, param, logger
+                        try:
                             self.emit_log(f"Trying {self.module_name}.{name}(url, param, logger)")
                             func(url, param, self._module_emit)
-                            invoked = True
-                            sig_ok = True
-                            break
-                    except TypeError:
-                        pass
-                    try:
-                        if with_stop:
-                            self.emit_log(f"Trying {self.module_name}.{name}(target, emit, stop_event)")
-                            func(self.target, self._module_emit, self._stop_event)
-                            invoked = True
-                            sig_ok = True
-                            break
-                        else:
-                            self.emit_log(f"Trying {self.module_name}.{name}(target, emit)")
-                            func(self.target, self._module_emit)
-                            invoked = True
-                            sig_ok = True
-                            break
-                    except TypeError:
-                        pass
-                    if not sig_ok:
-                        try:
-                            self.emit_log(f"Trying {self.module_name}.{name}(target)")
-                            func(self.target)
                             invoked = True
                             break
                         except TypeError:
                             pass
+                    # try (target, emit, stop_event) or (target, emit)
+                    try:
+                        if with_stop:
+                            self.emit_log(f"Trying {self.module_name}.{name}(target, emit, stop_event)")
+                            func(self.target, self._module_emit, self._stop_event)
+                        else:
+                            self.emit_log(f"Trying {self.module_name}.{name}(target, emit)")
+                            func(self.target, self._module_emit)
+                        invoked = True
+                        break
+                    except TypeError:
+                        pass
+                    # last fallback: (target)
+                    try:
+                        self.emit_log(f"Trying {self.module_name}.{name}(target)")
+                        func(self.target)
+                        invoked = True
+                        break
+                    except TypeError:
+                        pass
                 except Exception as e:
-                    self.emit_log(f"Error calling {self.module_name}.{name}: {e}", level="ERROR")
+                    self.emit_log(f"Exception during {self.module_name}.{name}: {e}", level="ERROR")
                     tb = traceback.format_exc()
                     self.emit_log(tb, level="DEBUG")
-                    # continue trying other candidates
+                    continue
 
-            if not invoked:
-                # Last resort: look for any function matching func_hint (e.g., scan_xss, scan_sqli, etc.)
-                if self.func_hint:
-                    alt = getattr(module, self.func_hint, None)
-                    if callable(alt):
-                        try:
-                            # try url,param,logger first
-                            if param != "":
-                                self.emit_log(f"Trying {self.module_name}.{self.func_hint}(url, param, logger)")
-                                alt(url, param, self._module_emit)
-                                invoked = True
-                            else:
-                                self.emit_log(f"Trying {self.module_name}.{self.func_hint}(target, logger)")
-                                alt(self.target, self._module_emit)
-                                invoked = True
-                        except Exception as e:
-                            self.emit_log(f"Alt call {self.func_hint} failed: {e}", level="ERROR")
-                            tb = traceback.format_exc()
-                            self.emit_log(tb, level="DEBUG")
+            # try func_hint direct if not yet invoked
+            if not invoked and self.func_hint:
+                alt = getattr(module, self.func_hint, None)
+                if callable(alt):
+                    try:
+                        if param:
+                            self.emit_log(f"Trying {self.module_name}.{self.func_hint}(url, param, logger)")
+                            alt(url, param, self._module_emit)
+                        else:
+                            self.emit_log(f"Trying {self.module_name}.{self.func_hint}(target, logger)")
+                            alt(self.target, self._module_emit)
+                        invoked = True
+                    except Exception as e:
+                        self.emit_log(f"Alt call {self.func_hint} failed: {e}", level="ERROR")
+                        tb = traceback.format_exc()
+                        self.emit_log(tb, level="DEBUG")
 
             if not invoked:
                 self.emit_log(f"No compatible entry point found for module '{self.module_name}'.", level="ERROR")
                 self.error_signal.emit(f"No entry point found for {self.module_name}")
             else:
-                self.emit_log(f"Module '{self.module_name}' completed.")
+                self.emit_log(f"Module '{self.module_name}' finished.")
         except Exception as e:
-            self.emit_log(f"Unhandled exception in worker: {e}", level="ERROR")
+            self.emit_log(f"Unhandled worker exception: {e}", level="ERROR")
             self.error_signal.emit(str(e))
             tb = traceback.format_exc()
             self.emit_log(tb, level="DEBUG")
         finally:
             self.finished_signal.emit()
 
-
-# --- GUI ---
+# -------------------------
+# GUI
+# -------------------------
 class BloodFangGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("BLOODFANG - Offensive Security")
         self.settings = QSettings("Talyx", "BLOODFANG")
 
-        # Restore geometry
+        # restore geometry & splitter state
         geom = self.settings.value("geometry")
         if geom:
             try:
@@ -244,8 +275,7 @@ class BloodFangGUI(QMainWindow):
                 pass
 
         self.setMinimumSize(1000, 640)
-
-        # Theme / stylesheet
+        # styling
         self.setStyleSheet("""
             QMainWindow { background-color: black; }
             QLabel { color: #ff4d4d; font-family: Consolas; }
@@ -255,62 +285,53 @@ class BloodFangGUI(QMainWindow):
             QTextEdit { background-color: #111; color: #ff4d4d; font-family: Consolas; font-size: 13px; }
         """)
 
-        # Layout
+        # main layout
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         main_v = QVBoxLayout(self.central_widget)
         main_v.setContentsMargins(10, 10, 10, 10)
 
-        # Header
+        # header
         header_h = QHBoxLayout()
         hacker_name_label = QLabel("Talyx")
-        hacker_name_label.setStyleSheet("font-size: 18px; color: #ff4d4d; font-weight: bold;")
+        hacker_name_label.setStyleSheet("font-size:18px;color:#ff4d4d;font-weight:bold;")
         header_h.addWidget(hacker_name_label, alignment=Qt.AlignLeft)
 
         title_label = QLabel("BLOODFANG")
-        title_label.setStyleSheet("font-size: 52px; font-weight: bold; color: #ff0000;")
+        title_label.setStyleSheet("font-size:52px;font-weight:bold;color:#ff0000;")
         title_label.setAlignment(Qt.AlignCenter)
         header_h.addWidget(title_label, stretch=1)
 
         github_label = QLabel("Github.com/Talyx66")
-        github_label.setStyleSheet("font-size: 14px; color: #ff4d4d; font-style: italic;")
+        github_label.setStyleSheet("font-size:14px;color:#ff4d4d;font-style:italic;")
         header_h.addWidget(github_label, alignment=Qt.AlignRight)
 
         main_v.addLayout(header_h)
 
-        # Splitter: left controls / right preview
+        # splitter
         self.splitter = QSplitter(Qt.Horizontal)
         main_v.addWidget(self.splitter, 10)
 
-        # Left controls (scrollable)
+        # left controls (scrollable)
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(6, 6, 6, 6)
-
         grid = QGridLayout()
         grid.setSpacing(8)
 
-        # Store fields
         self._fields = {}
 
-        # helper to add rows
         def add_row(i, label_placeholder, param_placeholder, run_cb, module_name, func_hint=None, param_tip=None):
-            url_field = QLineEdit()
-            url_field.setPlaceholderText(label_placeholder)
+            url_field = QLineEdit(); url_field.setPlaceholderText(label_placeholder)
             if param_placeholder:
-                param_field = QLineEdit()
-                param_field.setPlaceholderText(param_placeholder)
+                param_field = QLineEdit(); param_field.setPlaceholderText(param_placeholder)
                 if param_tip:
                     param_field.setToolTip(param_tip)
             else:
-                param_field = QLineEdit()
-                param_field.setPlaceholderText("—")
-                param_field.setEnabled(False)
+                param_field = QLineEdit(); param_field.setPlaceholderText("—"); param_field.setEnabled(False)
 
-            run_btn = QPushButton("Run")
-            run_btn.clicked.connect(run_cb)
-            info_btn = QPushButton("i")
-            info_btn.setFixedWidth(28)
+            run_btn = QPushButton("Run"); run_btn.clicked.connect(run_cb)
+            info_btn = QPushButton("i"); info_btn.setFixedWidth(28)
             info_btn.setToolTip("Show module info (usage, params, samples)")
             info_btn.clicked.connect(lambda _, m=module_name, fh=func_hint: self.populate_preview(m, fh))
 
@@ -322,90 +343,58 @@ class BloodFangGUI(QMainWindow):
             self._fields[module_name] = (url_field, param_field)
             return url_field, param_field
 
-        # Rows with explicit param guidance
-        add_row(0, "XSS Target URL (e.g. https://target.com/search)", "Parameter name (e.g. q, search, input)",
-                lambda: self._start_xss(), "fangxss", "scan_xss",
+        # rows
+        add_row(0, "XSS Target URL (e.g. https://target.com/search)", "Parameter name (e.g. q, search, input)", lambda: self._start_xss(), "fangxss", "scan_xss",
                 "Typical injectable param names: q, search, s, input — pass as URL::param")
-
-        add_row(1, "SQLi Target URL (e.g. https://target.com/product)", "Parameter name (e.g. id, product_id)",
-                lambda: self._start_sqli(), "fangsql", "scan_sqli",
+        add_row(1, "SQLi Target URL (e.g. https://target.com/product)", "Parameter name (e.g. id, product_id)", lambda: self._start_sqli(), "fangsql", "scan_sqli",
                 "IDs and DB lookup params: id, product_id, sku — pass as URL::param")
-
-        add_row(2, "LFI Target URL (e.g. https://target.com/view)", "Parameter name (e.g. file, page, path)",
-                lambda: self._start_lfi(), "fanglfi", "scan_lfi",
+        add_row(2, "LFI Target URL (e.g. https://target.com/view)", "Parameter name (e.g. file, page, path)", lambda: self._start_lfi(), "fanglfi", "scan_lfi",
                 "File include params: file, page, path — pass as URL::param (e.g. ../../../../etc/passwd)")
-
-        add_row(3, "RCE Target URL (e.g. https://target.com/exec)", "Parameter name (e.g. cmd, exec, command)",
-                lambda: self._start_rce(), "fangrce", "scan_rce",
+        add_row(3, "RCE Target URL (e.g. https://target.com/exec)", "Parameter name (e.g. cmd, exec, command)", lambda: self._start_rce(), "fangrce", "scan_rce",
                 "Command parameters: cmd, exec, command — pass as URL::param (try 'id' then 'whoami')")
-
-        add_row(4, "Brute Force Base URL (e.g. https://target.com)", "Login path (e.g. /admin/login)",
-                lambda: self._start_brute(), "fangbrute", "password_spray",
+        add_row(4, "Brute Force Base URL (e.g. https://target.com)", "Login path (e.g. /admin/login)", lambda: self._start_brute(), "fangbrute", "password_spray",
                 "Login path and form endpoint, e.g. /admin/login or /auth/login — pass as BASE::/path")
-
-        add_row(5, "API Base URL (e.g. https://target.com)", None,
-                lambda: self._start_api(), "fangapi", "discover_api_endpoints",
+        add_row(5, "API Base URL (e.g. https://target.com)", None, lambda: self._start_api(), "fangapi", "discover_api_endpoints",
                 "Base URL; scanner will probe /api/, /v1/, /graphql, etc.")
 
         left_layout.addLayout(grid)
 
-        # Presets
         self.presets_box = QGroupBox("Presets / Quick Actions")
         self.presets_layout = QVBoxLayout()
         self.presets_box.setLayout(self.presets_layout)
         left_layout.addWidget(self.presets_box)
         left_layout.addStretch(1)
 
-        left_scroll = QScrollArea()
-        left_scroll.setWidgetResizable(True)
-        left_scroll.setWidget(left_widget)
+        left_scroll = QScrollArea(); left_scroll.setWidgetResizable(True); left_scroll.setWidget(left_widget)
         self.splitter.addWidget(left_scroll)
 
-        # Right preview widget (rich text)
-        self.preview_widget = QTextEdit()
-        self.preview_widget.setReadOnly(True)
-        self.preview_widget.setLineWrapMode(QTextEdit.WidgetWidth)
-        self.preview_widget.setFont(QFont("Consolas", 11))
+        # right preview
+        self.preview_widget = QTextEdit(); self.preview_widget.setReadOnly(True)
+        self.preview_widget.setLineWrapMode(QTextEdit.WidgetWidth); self.preview_widget.setFont(QFont("Consolas", 11))
         self.splitter.addWidget(self.preview_widget)
 
-        # Bottom output console (large)
-        self.output_console = QTextEdit()
-        self.output_console.setReadOnly(True)
-        font = QFont("Consolas", 11)
-        self.output_console.setFont(font)
-        self.output_console.setLineWrapMode(QTextEdit.NoWrap)
+        # bottom console
+        self.output_console = QTextEdit(); self.output_console.setReadOnly(True); self.output_console.setFont(QFont("Consolas", 11)); self.output_console.setLineWrapMode(QTextEdit.NoWrap)
         main_v.addWidget(self.output_console, 6)
 
-        # Controls under console
+        # controls
         controls_h = QHBoxLayout()
-        self.stop_btn = QPushButton("Stop")
-        self.stop_btn.setEnabled(False)
-        self.stop_btn.clicked.connect(self._stop_worker)
-        self.clear_btn = QPushButton("Clear Output")
-        self.clear_btn.clicked.connect(self.output_console.clear)
-        self.save_btn = QPushButton("Save Log...")
-        self.save_btn.clicked.connect(self._save_log)
-
-        controls_h.addWidget(self.stop_btn)
-        controls_h.addWidget(self.clear_btn)
-        controls_h.addWidget(self.save_btn)
-        controls_h.addStretch(1)
+        self.stop_btn = QPushButton("Stop"); self.stop_btn.setEnabled(False); self.stop_btn.clicked.connect(self._stop_worker)
+        self.clear_btn = QPushButton("Clear Output"); self.clear_btn.clicked.connect(self.output_console.clear)
+        self.save_btn = QPushButton("Save Log..."); self.save_btn.clicked.connect(self._save_log)
+        controls_h.addWidget(self.stop_btn); controls_h.addWidget(self.clear_btn); controls_h.addWidget(self.save_btn); controls_h.addStretch(1)
         main_v.addLayout(controls_h)
 
-        # Background GIF
+        # background GIF
         gif_path = PROJECT_ROOT / "BloodFANG" / "gui" / "assets" / "Talyxlogo6.gif"
-        # try original expected location first, fallback to gui/assets in this folder
         if not gif_path.exists():
             gif_path = HERE / "assets" / "Talyxlogo6.gif"
-        self.bg_label = QLabel(self)
-        self.bg_label.setScaledContents(True)
-        self.bg_label.lower()
+        self.bg_label = QLabel(self); self.bg_label.setScaledContents(True); self.bg_label.lower()
         if gif_path.exists():
             try:
                 self.bg_movie = QMovie(str(gif_path))
                 if self.bg_movie.isValid():
-                    self.bg_label.setMovie(self.bg_movie)
-                    self.bg_movie.start()
+                    self.bg_label.setMovie(self.bg_movie); self.bg_movie.start()
                 else:
                     self._log_to_console("[WARN] GIF file seems invalid.")
             except Exception as e:
@@ -413,18 +402,11 @@ class BloodFangGUI(QMainWindow):
         else:
             self._log_to_console(f"[WARN] GIF not found: {gif_path}")
 
-        # Visual polish
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(40)
-        shadow.setColor(QColor(255, 0, 2, 180))
-        shadow.setOffset(0)
-        self.central_widget.setGraphicsEffect(shadow)
-        self.central_widget.setStyleSheet("background-color: rgba(10, 10, 20, 50);")
+        shadow = QGraphicsDropShadowEffect(self); shadow.setBlurRadius(40); shadow.setColor(QColor(255, 0, 2, 180)); shadow.setOffset(0)
+        self.central_widget.setGraphicsEffect(shadow); self.central_widget.setStyleSheet("background-color: rgba(10, 10, 20, 50);")
 
-        # Thread tracking
         self.worker = None
 
-        # Restore splitter
         splitter_state = self.settings.value("splitterState")
         if splitter_state:
             try:
@@ -432,10 +414,10 @@ class BloodFangGUI(QMainWindow):
             except Exception:
                 pass
 
-        # Replace append with thread-safe helper
+        # thread-safe append
         self.output_console.append = self._append_safe
 
-    # GUI lifecycle
+    # lifecycle
     def resizeEvent(self, ev):
         try:
             self.bg_label.resize(self.size())
@@ -456,7 +438,7 @@ class BloodFangGUI(QMainWindow):
             self.worker.wait(2000)
         super().closeEvent(ev)
 
-    # Logging helpers
+    # logging helpers
     def _append_safe(self, text: str):
         self.output_console.moveCursor(QTextCursor.End)
         self.output_console.insertPlainText(text + "\n")
@@ -466,12 +448,11 @@ class BloodFangGUI(QMainWindow):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._append_safe(f"[{ts}] {text}")
 
-    # Preview population (explicit params + payloads)
+    # preview
     def populate_preview(self, module_name: str, func_hint: str = None):
         parts = []
         parts.append(f"<h2 style='color:#ff4d4d'>{module_name}</h2>")
-
-        # module doc + functions
+        # module introspection
         try:
             mod = None
             try:
@@ -497,54 +478,26 @@ class BloodFangGUI(QMainWindow):
                         sig = "(signature unavailable)"
                     funcs.append((name, sig))
                 if funcs:
-                    html = "<b>Functions:</b><br><ul>"
+                    func_html = "<b>Functions:</b><br><ul>"
                     for n, s in funcs:
-                        html += f"<li><code>{n}{s}</code></li>"
-                    html += "</ul>"
-                    parts.append(html)
+                        func_html += f"<li><code>{n}{s}</code></li>"
+                    func_html += "</ul>"
+                    parts.append(func_html)
+                else:
+                    parts.append("<b>Functions:</b> None discovered.")
             else:
                 parts.append("<b>Module:</b> Not importable for detailed introspection.")
         except Exception as e:
             parts.append(f"<b>Preview error:</b> {e}")
 
-        # parameter guidance + explicit example targets
+        # guidance + payloads
         guidance = {
-            "fangxss": {
-                "usage": "URL::param — e.g. https://target.com/search::q",
-                "desc": "Provide a page URL and a GET parameter likely to reflect input. Param examples: q, search, input, term",
-                "example": "https://target.com/search::q",
-                "payload_files": ["xss_payloads.txt"]
-            },
-            "fangsql": {
-                "usage": "URL::param — e.g. https://target.com/product::id",
-                "desc": "Resource URLs with lookup params. Param examples: id, product_id, sku",
-                "example": "https://target.com/product::id",
-                "payload_files": ["sql_payloads.txt"]
-            },
-            "fanglfi": {
-                "usage": "URL::param — e.g. https://target.com/view::file",
-                "desc": "File include params. Try payloads such as ../../../../etc/passwd or php wrappers.",
-                "example": "https://target.com/view::file",
-                "payload_files": ["lfi_payloads.txt"]
-            },
-            "fangrce": {
-                "usage": "URL::param — e.g. https://target.com/exec::cmd",
-                "desc": "Command-exec params. Use harmless commands first (id, whoami).",
-                "example": "https://target.com/exec::cmd",
-                "payload_files": ["rce_payloads.txt"]
-            },
-            "fangbrute": {
-                "usage": "BASE::path — e.g. https://target.com::/admin/login",
-                "desc": "Base URL and login path where credentials post. Tool will use brute_usernames.txt & brute_passwords.txt if present.",
-                "example": "https://target.com::/admin/login",
-                "payload_files": ["brute_usernames.txt", "brute_passwords.txt"]
-            },
-            "fangapi": {
-                "usage": "BASE_URL — e.g. https://target.com",
-                "desc": "Base URL; scanner probes /api/, /v1/, /graphql, etc.",
-                "example": "https://target.com",
-                "payload_files": ["api_endpoints.txt"]
-            }
+            "fangxss": {"usage": "URL::param", "desc": "Page URL + GET parameter (q, search, input)", "example": "https://target.com/search::q", "payload_files": ["xss_payloads.txt"]},
+            "fangsql": {"usage": "URL::param", "desc": "Resource + lookup param (id, product_id)", "example": "https://target.com/product::id", "payload_files": ["sql_payloads.txt"]},
+            "fanglfi": {"usage": "URL::param", "desc": "File include params (file, page, path)", "example": "https://target.com/view::file", "payload_files": ["lfi_payloads.txt"]},
+            "fangrce": {"usage": "URL::param", "desc": "Command param (cmd, exec)", "example": "https://target.com/exec::cmd", "payload_files": ["rce_payloads.txt"]},
+            "fangbrute": {"usage": "BASE::path", "desc": "Base URL + login path; uses brute_usernames/passwords", "example": "https://target.com::/admin/login", "payload_files": ["brute_usernames.txt", "brute_passwords.txt"]},
+            "fangapi": {"usage": "BASE_URL", "desc": "API base; probes /api/, /v1/, /graphql", "example": "https://target.com", "payload_files": ["api_endpoints.txt"]}
         }
 
         g = guidance.get(module_name)
@@ -552,8 +505,6 @@ class BloodFangGUI(QMainWindow):
             parts.append(f"<b>Usage:</b><br><pre>{g['usage']}</pre>")
             parts.append(f"<b>What to pass:</b><br><pre>{g['desc']}</pre>")
             parts.append(f"<b>Example:</b><br><pre>{g['example']}</pre>")
-
-            # payload samples
             for fn in g.get("payload_files", []):
                 p = PAYLOADS_DIR / fn
                 entries = read_payload_file(p)
@@ -563,13 +514,12 @@ class BloodFangGUI(QMainWindow):
                 else:
                     parts.append(f"<b>{fn}:</b> (no file or empty)")
 
-        # quick tips
         tips = """
         <b>Quick tips</b>
         <ul>
-          <li>Start with a single target + single param. Validate behavior before wider scans.</li>
-          <li>For XSS/SQLi, test in staging and avoid destructive payloads.</li>
-          <li>Stop will request cancellation; modules that spawn blocking processes may take longer to stop.</li>
+          <li>Start with one target & one parameter.</li>
+          <li>Use safe payloads first (alert(1)).</li>
+          <li>Stop requests are cooperative — modules that spawn subprocesses may need extra time to cancel.</li>
         </ul>
         """
         parts.append(tips)
@@ -577,7 +527,7 @@ class BloodFangGUI(QMainWindow):
         html = "<hr>".join(parts)
         self.preview_widget.setHtml(html)
 
-    # Worker lifecycle
+    # worker lifecycle
     def _start_worker(self, module_name: str, func_hint: str, target: str):
         if self.worker and self.worker.isRunning():
             self._log_to_console("[WARN] A worker is already running. Stop it first.")
@@ -602,7 +552,7 @@ class BloodFangGUI(QMainWindow):
         self._log_to_console("[INFO] Worker finished.")
         self.stop_btn.setEnabled(False)
 
-    # Module start helpers (compose targets)
+    # starters
     def _start_xss(self):
         url_field, param_field = self._fields.get("fangxss", (None, None))
         url = url_field.text().strip() if url_field else ""
@@ -656,7 +606,7 @@ class BloodFangGUI(QMainWindow):
             return
         self._start_worker("fangapi", "discover_api_endpoints", url)
 
-    # Save log
+    # save log
     def _save_log(self):
         suggested = f"bloodfang_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         path, _ = QFileDialog.getSaveFileName(self, "Save log as...", suggested, "Text Files (*.txt);;All Files (*)")
@@ -668,8 +618,9 @@ class BloodFangGUI(QMainWindow):
             except Exception as e:
                 self._log_to_console(f"[ERROR] Could not save log: {e}")
 
-
-# Run
+# -------------------------
+# Run (PyQt5 safe block)
+# -------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     gui = BloodFangGUI()
@@ -677,4 +628,5 @@ if __name__ == "__main__":
     try:
         sys.exit(app.exec_())
     except Exception:
+        # fallback if exec_ not available for some reason
         sys.exit(app.exec())
