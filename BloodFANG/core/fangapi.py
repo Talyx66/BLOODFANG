@@ -1,36 +1,32 @@
-import requests
-from urllib.parse import urljoin
-from bs4 import BeautifulSoup
+# BloodFANG/core/fangapi.py
+import requests, time
+from pathlib import Path
 
-def discover_api_endpoints(base_url, common_endpoints=None, logger=print):
-    """
-    Discover API endpoints by crawling common paths and scraping for endpoints.
-    """
-    if common_endpoints is None:
-        common_endpoints = [
-            "/api/", "/api/v1/", "/api/v2/", "/rest/", "/graphql", "/wp-json/"
-        ]
+PAYLOAD_DIR = Path(__file__).resolve().parent / "payloads"
+def _load_payloads(name, fallback):
+    f = PAYLOAD_DIR / name
+    try:
+        if f.exists():
+            lines=[l.strip() for l in f.read_text(encoding="utf-8").splitlines()
+                   if l.strip() and not l.startswith("#")]
+            if lines: return lines
+    except Exception: pass
+    return fallback
 
-    headers = {"User-Agent": "BloodFANG-API-Discovery"}
+ENDPOINTS = _load_payloads("api_endpoints.txt", ["/api/","/api/v1/","/v1/","/graphql"])
 
-    logger(f"[>] Starting API endpoint discovery on {base_url}")
-
-    for endpoint in common_endpoints:
-        url = urljoin(base_url, endpoint)
+def discover_api_endpoints(base,emit,stop_event=None):
+    emit(f"[API] Discovery on {base}")
+    for ep in ENDPOINTS:
+        if stop_event and stop_event.is_set(): emit("[API] Stopped."); return
+        u = base.rstrip("/") + ep
         try:
-            r = requests.get(url, headers=headers, timeout=8)
-            if r.status_code == 200:
-                logger(f"[!!] Found active endpoint: {url}")
+            r = requests.get(u,timeout=6,verify=False)
+            emit(f"[API] {r.status_code} {u}")
+            if r.status_code==200: emit(f"[API] Found endpoint: {u}")
+        except Exception as e: emit(f"[API] Error: {e}")
+        time.sleep(0.25)
+    emit("[API] Complete.")
 
-                # Try to parse JSON or HTML for further links
-                content_type = r.headers.get("Content-Type", "")
-                if "application/json" in content_type:
-                    logger(f"    JSON response found at {url}")
-                elif "html" in content_type:
-                    soup = BeautifulSoup(r.text, "html.parser")
-                    links = set(a['href'] for a in soup.find_all('a', href=True))
-                    logger(f"    Found {len(links)} links on {url}")
-            else:
-                logger(f"[-] {url} returned status {r.status_code}")
-        except Exception as e:
-            logger(f"[X] Error accessing {url} - {e}")
+def run(target,emit,stop_event=None):
+    discover_api_endpoints(target,emit,stop_event)
