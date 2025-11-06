@@ -18,7 +18,7 @@
 ![Screenshot](Screenshots/BLOODFANGss.png)
 
 ### live preview
-![Live Demo](Screenshots/BLOODFANGv.mp4)
+![Live Demo](Screenshots/BLOODFANGv.gif)
 
 ### Recent Updates: 8/17/25
 ```
