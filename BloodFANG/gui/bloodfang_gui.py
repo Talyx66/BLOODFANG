@@ -19,10 +19,10 @@ from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QLineEdit,
     QPushButton, QTextEdit, QGridLayout, QHBoxLayout, QSplitter, QScrollArea,
-    QFileDialog, QGroupBox, QGraphicsDropShadowEffect
+    QFileDialog, QGroupBox, QGraphicsDropShadowEffect, QMenu, QAction, QInputDialog
 )
 from PyQt5.QtGui import QMovie, QColor, QFont, QTextCursor
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings, QTimer, QDateTime, QTimeZone
 
 # -------------------------
 # Path configuration fix
@@ -383,6 +383,88 @@ class BloodFangGUI(QMainWindow):
         self.clear_btn = QPushButton("Clear Output"); self.clear_btn.clicked.connect(self.output_console.clear)
         self.save_btn = QPushButton("Save Log..."); self.save_btn.clicked.connect(self._save_log)
         controls_h.addWidget(self.stop_btn); controls_h.addWidget(self.clear_btn); controls_h.addWidget(self.save_btn); controls_h.addStretch(1)
+
+        # digital clock label (red)
+        self.clock_label = QLabel()
+        self.clock_label.setStyleSheet("color: #ff2b2b; font-family: Consolas; font-size: 13px;")
+        # keep it compact
+        self.clock_label.setMinimumWidth(120)
+        controls_h.addWidget(self.clock_label, alignment=Qt.AlignRight)
+
+        # internal state for timezone + timer end
+        self._bf_timezone = QTimeZone.systemTimeZone()
+        self._bf_timer_end = None
+
+        def _update_clock():
+            now = QDateTime.currentDateTime().toTimeZone(self._bf_timezone)
+            clock_str = now.toString("HH:mm:ss")
+            # show date optionally (comment/uncomment)
+            # clock_str = now.toString("yyyy-MM-dd HH:mm:ss")
+            # if timer set, compute remaining
+            if self._bf_timer_end:
+                remaining_ms = QDateTime.currentDateTime().msecsTo(self._bf_timer_end)
+                if remaining_ms > 0:
+                    total_sec = int(remaining_ms / 1000)
+                    mins, secs = divmod(total_sec, 60)
+                    hrs, mins = divmod(mins, 60)
+                    clock_str += f"  |  ⏱ {hrs:02d}:{mins:02d}:{secs:02d}"
+                else:
+                    clock_str += "  |  ⏱ DONE"
+                    # clear after showing DONE once
+                    self._bf_timer_end = None
+            self.clock_label.setText(clock_str)
+        
+        # start timer updating every second
+        self._bf_clock_timer = QTimer(self)
+        self._bf_clock_timer.timeout.connect(_update_clock)
+        self._bf_clock_timer.start(1000)
+        _update_clock()
+        
+        # settings button with small menu for timezone & set timer
+        self.clock_btn = QPushButton("⚙")
+        self.clock_btn.setFixedWidth(34)
+        self.clock_btn.setToolTip("Clock settings: timezone / set timer")
+        self.clock_btn.setStyleSheet("background-color: #1a1a1a; color: #ff4d4d; border:1px solid #ff1a1a;")
+        
+        # menu actions
+        menu = QMenu(self)
+        
+        def _set_timezone():
+            zones = ["Local", "UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Asia/Tokyo"]
+            tz_choice, ok = QInputDialog.getItem(self, "Select Timezone", "Timezone:", zones, 0, False)
+            if ok:
+                if tz_choice == "Local":
+                    self._bf_timezone = QTimeZone.systemTimeZone()
+                elif tz_choice == "UTC":
+                    self._bf_timezone = QTimeZone(b"UTC")
+                else:
+                    # QTimeZone expects bytes
+                    self._bf_timezone = QTimeZone(tz_choice.encode())
+                _update_clock()
+        
+        def _set_timer():
+            # ask minutes first (int)
+            mins, ok = QInputDialog.getInt(self, "Set Countdown Timer", "Minutes:", 5, 0, 9999, 1)
+            if ok:
+                # optional seconds
+                secs, ok2 = QInputDialog.getInt(self, "Set Countdown Timer (seconds)", "Additional seconds:", 0, 0, 59, 1)
+                if ok2:
+                    total = mins * 60 + secs
+                    self._bf_timer_end = QDateTime.currentDateTime().addSecs(total)
+                    _update_clock()
+        
+        def _clear_timer():
+            self._bf_timer_end = None
+            _update_clock()
+        
+        menu.addAction(QAction("Change Timezone", self, triggered=_set_timezone))
+        menu.addAction(QAction("Set Timer (minutes)", self, triggered=_set_timer))
+        menu.addAction(QAction("Clear Timer", self, triggered=_clear_timer))
+        
+        self.clock_btn.setMenu(menu)
+        controls_h.addWidget(self.clock_btn, alignment=Qt.AlignRight)
+        # ---------- end clock ----------
+        
         main_v.addLayout(controls_h)
 
         # background GIF
@@ -630,3 +712,4 @@ if __name__ == "__main__":
     except Exception:
         # fallback if exec_ not available for some reason
         sys.exit(app.exec())
+
