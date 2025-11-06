@@ -1,21 +1,44 @@
+# BloodFANG/core/fangxss.py
+"""
+Cross-Site Scripting scanner for BLOODFANG.
+Detects reflected payloads via GET parameters.
+"""
+import requests, urllib.parse, time
 
+PAYLOADS = [
+    "<script>alert(1)</script>",
+    "\"><img src=x onerror=alert(1)>",
+    "'><svg/onload=alert(1)>",
+    "<iframe src='javascript:alert(1)'></iframe>"
+]
 
-import os
-import requests
+def _compose(url, param, payload):
+    parsed = urllib.parse.urlparse(url)
+    q = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    q.append((param, payload))
+    new_query = urllib.parse.urlencode(q, doseq=True)
+    return urllib.parse.urlunparse(parsed._replace(query=new_query))
 
-def load_payloads():
-    base = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(base, "payloads", "xss_payloads.txt"), "r") as f:
-        return [p.strip() for p in f.readlines() if p.strip()]
-
-def scan_xss(url, param, logger=print):
-    payloads = load_payloads()
-    logger(f"[XSS] Loaded {len(payloads)} payloads")
-    for payload in payloads:
-        full_url = f"{url}?{param}={payload}"
+def scan_xss(url, param, emit, stop_event=None):
+    if not param:
+        emit("[XSS] Missing parameter.")
+        return
+    emit(f"[XSS] Target: {url} param={param}")
+    for p in PAYLOADS:
+        if stop_event and stop_event.is_set():
+            emit("[XSS] Stopped by user.")
+            return
+        target = _compose(url, param, p)
         try:
-            r = requests.get(full_url, timeout=5)
-            if payload in r.text:
-                logger(f"[+] Possible XSS reflected: {payload}")
+            r = requests.get(target, timeout=8, verify=False)
+            emit(f"[XSS] {r.status_code} → {target}")
+            if p in r.text:
+                emit(f"[XSS] Reflection found for payload: {p}")
         except Exception as e:
-            logger(f"[!] Error on payload {payload}: {e}")
+            emit(f"[XSS] Request error: {e}")
+        time.sleep(0.25)
+    emit("[XSS] Scan complete.")
+
+def scan(target, emit, stop_event=None):
+    url, param = (target.split("::",1)+[""])[:2]
+    scan_xss(url, param, emit, stop_event)
