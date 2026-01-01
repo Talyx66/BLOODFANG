@@ -55,5 +55,5 @@ python3 bloodfang.py   (or)   python3 Bloodfang_gui.py
 Follow on-screen prompts to select tools and targets
 
 # Engineered & Developed by:
-Talyx   https://github.com/Talyx66
+Talyx   https://github.com/Talyx66   https://www.linkedin.com/in/tyler-b-4439732b0/
 ---
