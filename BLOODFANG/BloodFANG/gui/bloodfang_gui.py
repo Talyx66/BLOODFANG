@@ -368,6 +368,7 @@ class BloodFangGUI(QMainWindow):
         left_scroll = QScrollArea(); left_scroll.setWidgetResizable(True); left_scroll.setWidget(left_widget)
         self.splitter.addWidget(left_scroll)
 
+
         # right preview
         self.preview_widget = QTextEdit(); self.preview_widget.setReadOnly(True)
         self.preview_widget.setLineWrapMode(QTextEdit.WidgetWidth); self.preview_widget.setFont(QFont("Consolas", 11))
