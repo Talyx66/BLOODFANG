@@ -1,2 +1,6 @@
-requests==2.31.0
 PyQt5==5.15.10
+requests==2.31.0
+urllib3==2.0.7
+beaulxml==4.9.3
+tifulsoup4==4.12.2
+
