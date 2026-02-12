@@ -485,7 +485,7 @@ class BloodFangGUI(QMainWindow):
             self._log_to_console(f"[WARN] GIF not found: {gif_path}")
 
         shadow = QGraphicsDropShadowEffect(self); shadow.setBlurRadius(40); shadow.setColor(QColor(255, 0, 2, 180)); shadow.setOffset(0)
-        self.central_widget.setGraphicsEffect(shadow); self.central_widget.setStyleSheet("background-color: rgba(10, 10, 20, 50);")
+        self.central_widget.setGraphicsEffect(shadow); self.central_widget.setStyleSheet("background-color: #0a0a14;")
 
         self.worker = None
 
