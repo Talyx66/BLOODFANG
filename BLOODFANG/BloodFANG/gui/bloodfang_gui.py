@@ -365,8 +365,15 @@ class BloodFangGUI(QMainWindow):
         left_layout.addWidget(self.presets_box)
         left_layout.addStretch(1)
 
-        left_scroll = QScrollArea(); left_scroll.setWidgetResizable(True); left_scroll.setWidget(left_widget)
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setWidget(left_widget)
+        
+        left_scroll.setStyleSheet("background-color: #0a0a14; border: none;")
+        left_scroll.viewport().setStyleSheet("background-color: #0a0a14;")
+        
         self.splitter.addWidget(left_scroll)
+
 
 
         # right preview
@@ -705,7 +712,8 @@ class BloodFangGUI(QMainWindow):
 # Run (PyQt5 safe block)
 # -------------------------
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    app = QApplication(sys.argv) 
+    app.setStyle("Fusion")
     gui = BloodFangGUI()
     gui.show()
     try:
