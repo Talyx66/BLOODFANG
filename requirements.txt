@@ -1,5 +1,2 @@
 requests==2.31.0
-colorama==0.4.6
-beautifulsoup4==4.12.2
-flask==3.0.0
-pyqt6==6.6.1
+PyQt5==5.15.10
