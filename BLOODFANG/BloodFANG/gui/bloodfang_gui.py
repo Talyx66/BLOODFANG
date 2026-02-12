@@ -359,10 +359,6 @@ class BloodFangGUI(QMainWindow):
 
         left_layout.addLayout(grid)
 
-        self.presets_box = QGroupBox("Presets / Quick Actions")
-        self.presets_layout = QVBoxLayout()
-        self.presets_box.setLayout(self.presets_layout)
-        left_layout.addWidget(self.presets_box)
         left_layout.addStretch(1)
 
         left_scroll = QScrollArea()
