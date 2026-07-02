@@ -20,7 +20,7 @@
 ### live preview
 ![Live Demo](Screenshots/BLOODFANGv.gif)
 
-### Recent Updates: 8/17/25 | New updates coming soon 8/01/2026
+### Recent Updates: 8/17/25 | New updates coming soon 8/01/2026 BLOODFANG V2.0
 ```
 Updated ReadME, Minor syntax indentation fixes 8/17/25
 ```
